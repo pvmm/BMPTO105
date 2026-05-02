@@ -83,40 +83,40 @@ Image105_TempVal:           equ Image105Data + $6a
 ;---------------------------------------------------------
 ; Loads 105 color image
 ; In:
-;       hl  -   Image data address
+;       hl  -   si2 Image data address
 ;       b   -   x offset (in chars, 0-31)
 ;       c   -   y offset (in chars, 0-23)
 ;---------------------------------------------------------
 Image105Load:
         ; Clear even/odd flag
         xor     a
-        ld      (Image105_EvenOdd),a
+        ld      (Image105_EvenOdd), a
         
         ; Save image position
-        ld      a,b
-        ld      (Image105_X),a
-        ld      a,c
-        ld      (Image105_Y),a
+        ld      a, b
+        ld      (Image105_X), a
+        ld      a, c
+        ld      (Image105_Y), a
         
         ; Load header (assume image fits on screen)
-        ld      a,(hl)
-        ld      (Image105_Width),a
+        ld      a, (hl)
+        ld      (Image105_Width), a
         inc     hl
-        ld      a,(hl)
-        ld      (Image105_Height),a
+        ld      a, (hl)
+        ld      (Image105_Height), a
         inc     hl
 
-        ld      a,$00
-        ld      de,Image105_PatchPatternEven0
+        xor     a
+        ld      de, Image105_PatchPatternEven0
         call    ImageLoadBlock
-        ld      a,$20
-        ld      de,Image105_PatchColorEven0
+        ld      a, $20
+        ld      de, Image105_PatchColorEven0
         call    ImageLoadBlock
-        ld      a,$04
-        ld      de,Image105_PatchPatternOdd0
+        ld      a, $04
+        ld      de, Image105_PatchPatternOdd0
         call    ImageLoadBlock
-        ld      a,$24
-        ld      de,Image105_PatchColorOdd0
+        ld      a, $24
+        ld      de, Image105_PatchColorOdd0
         call    ImageLoadBlock
                 
         ret
@@ -126,49 +126,49 @@ Image105Load:
 ; Updates 105 color image. Should be called once per frame
 ;---------------------------------------------------------
 Image105Update:
-        ld      a,(Image105_EvenOdd)
+        ld      a, (Image105_EvenOdd)
         xor     $80
-        ld      (Image105_EvenOdd),a
-        ld      c,a
+        ld      (Image105_EvenOdd), a
+        ld      c, a
         
-        ld      a,(Image105_X)
-        ld      d,a
+        ld      a, (Image105_X)
+        ld      d, a
         
-        ld      a,(Image105_Height)
-        ld      h,a
+        ld      a, (Image105_Height)
+        ld      h, a
 
-        ld      a,(Image105_Y)
-        ld      e,a
+        ld      a, (Image105_Y)
+        ld      e, a
                 
         ; Let b = 8 - (Y and 7) (nr of lines in first 1/3 of screen)
         and     7
         neg
         add     8
-        ld      b,a
+        ld      b, a
         
 .Loop:  
         ; Calculate b = MIN(b, h)
-        ld      a,b
+        ld      a, b
         sub     h
-        jr      c,.NoMin
-        ld      b,h
+        jr      c, .NoMin
+        ld      b, h
 .NoMin:
         call    Image105UpdateBlock
         
         ; e = e + b
-        ld      a,e
+        ld      a, e
         add     b
-        ld      e,a
+        ld      e, a
         
         ; h = h - b
-        ld      a,h
+        ld      a, h
         sub     b
-        ld      h,a
+        ld      h, a
         
-        ld      b,8
+        ld      b, 8
         
         ; If more lines to draw, do so
-        jr      nz,.Loop
+        jr      nz, .Loop
                         
         ret
 
@@ -184,43 +184,43 @@ Image105UpdatePatchChar:
         push    de
 
         ; Get pointer to color patch
-        ld      d,0
-        ld      e,a
+        ld      d, 0
+        ld      e, a
 
-        ld      a,c
+        ld      a, c
         cp      0
-        ld      hl,Image105_PatchColorEven0
-        jr      nz,.Even        
-        ld      hl,Image105_PatchColorOdd0
+        ld      hl, Image105_PatchColorEven0
+        jr      nz, .Even
+        ld      hl, Image105_PatchColorOdd0
 .Even:
-        add     hl,de
+        add     hl, de
         ; Output color patch
-        ld      a,$00
-        out     [$99],a
-        ld      a,e
+        ld      a, $00
+        out     [$99], a
+        ld      a, e
         or      $64
         nop
-        out     [$99],a
-        ld      bc,$0898
+        out     [$99], a
+        ld      bc, $0898
 .LoopColor:
         outi
-        jr      nz,.LoopColor
+        jr      nz, .LoopColor
 
         ; Get pointer to pattern patch
-        ld      bc,$10
-        add     hl,bc
+        ld      bc, $10
+        add     hl, bc
         
         ; Output pattern patch
-        ld      a,$00
-        out     [$99],a
-        ld      a,e
+        ld      a, $00
+        out     [$99], a
+        ld      a, e
         or      $44
         nop
-        out     [$99],a
-        ld      bc,$0898
+        out     [$99], a
+        ld      bc, $0898
 .LoopPattern:
         outi
-        jr      nz,.LoopPattern
+        jr      nz, .LoopPattern
         
         pop     de
         pop     bc
@@ -240,48 +240,48 @@ Image105UpdateBlock:
         push    de
         push    hl
         
-        ld      a,e
+        ld      a, e
         and     $f8
         call    Image105UpdatePatchChar
         
-        ld      a,c
+        ld      a, c
         xor     $ff
-        ld      c,a
+        ld      c, a
 
-        ld      l,$80
+        ld      l, $80
         
-        ld      a,e
+        ld      a, e
         rrca
         rrca
         rrca
         and     $e0
         add     d
         sub     $20
-        ld      d,a
+        ld      d, a
         
 .LoopY:
-        ld      a,d
+        ld      a, d
         add     $20
-        ld      d,a
-        out     [$99],a
-        ld      a,e
+        ld      d, a
+        out     [$99], a
+        ld      a, e
         rrca
         rrca
         rrca
         and     $1f
         or      $58
-        out     [$99],a
+        out     [$99], a
 
-        ld      a,(Image105_Width)
-        ld      h,a
-        ld      a,l
+        ld      a, (Image105_Width)
+        ld      h, a
+        ld      a, l
 .LoopX:
-        out     [$98],a
+        out     [$98], a
         inc     a
         and     c
         dec     h
-        jr      nz,.LoopX
-        ld      l,a
+        jr      nz, .LoopX
+        ld      l, a
         inc     e
         djnz    .LoopY
         
@@ -299,39 +299,39 @@ Image105UpdateBlock:
 ;       hl  - Image data address
 ;---------------------------------------------------------
 ImageLoadBlock:
-        ld      (Image105_TempAddr),de
-        ld      (Image105_TempVal),a
+        ld      (Image105_TempAddr), de
+        ld      (Image105_TempVal), a
         
-        ld      a,(Image105_Height)
-        ld      d,a
+        ld      a, (Image105_Height)
+        ld      d, a
         
-        ld      a,(Image105_Y)
-        ld      e,a
+        ld      a, (Image105_Y)
+        ld      e, a
         
         and     7
         neg
         add     8
-        ld      b,a
+        ld      b, a
         
 .Loop:  
-        ld      a,b
+        ld      a, b
         sub     d
-        jr      c,.NoMin
-        ld      b,d
+        jr      c, .NoMin
+        ld      b, d
 .NoMin: 
         ; Save Patch data
         push    bc
         push    de
-        ld      a,e
+        ld      a, e
         and     $f8
         push    hl
         ; Get pointer to color patch
-        ld      h,0
-        ld      l,a
-        ld      de,(Image105_TempAddr)
-        add     hl,de
-        ex      de,hl
-        ld      bc,8
+        ld      h, 0
+        ld      l, a
+        ld      de, (Image105_TempAddr)
+        add     hl, de
+        ex      de, hl
+        ld      bc, 8
         pop     hl
         ldir
         pop     de
@@ -341,43 +341,43 @@ ImageLoadBlock:
         push    bc
         push    de
         
-        ld      a,8
-        out     [$99],a
-        ld      a,e
+        ld      a, 8
+        out     [$99], a
+        ld      a, e
         and     $f8
-        ld      e,a
-        ld      a,(Image105_TempVal)
+        ld      e, a
+        ld      a, (Image105_TempVal)
         or      e
         or      $40
-        out     [$99],a
+        out     [$99], a
         
-        ld      d,b
-        ld      a,(Image105_Width)
+        ld      d, b
+        ld      a, (Image105_Width)
         rla
         rla
         rla
-        ld      e,a
+        ld      e, a
         sub     8
-        ld      b,a
-        ld      c,$98
+        ld      b, a
+        ld      c, $98
 .CopyLoop:
         outi
-        jr      nz,.CopyLoop
-        ld      b,e
+        jr      nz, .CopyLoop
+        ld      b, e
         dec     d
-        jr      nz,.CopyLoop
+        jr      nz, .CopyLoop
               
         pop     de
         pop     bc
         
         ; Update counters
-        ld      a,e
+        ld      a, e
         add     b
-        ld      e,a
-        ld      a,d
+        ld      e, a
+        ld      a, d
         sub     b
-        ld      d,a
-        ld      b,8
-        jr      nz,.Loop
+        ld      d, a
+        ld      b, 8
+        jr      nz, .Loop
         
         ret
