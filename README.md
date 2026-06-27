@@ -24,3 +24,7 @@ The source bitmap file is recommended to be 128x192 pixels. The encoder
 is however able to encode imgages of other sizes as well as long as
 the width and height is a multiple of 8 bytes.
 ```
+
+⚠️ **IMPORTANT** ⚠️
+
+* **i105view.asm** requires [tniASM 0.45](http://www.tni.nl/products/tniasm.html) to compile.
