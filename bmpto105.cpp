@@ -26,6 +26,10 @@
 #include <cstdint>
 #include <format>
 
+// Measure performance
+#include "timer.cpp"
+Benchmarker benchmarker;
+
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
@@ -243,6 +247,7 @@ inline uint32_t COLOR_MSE(const RgbColor& c1, const RgbColor& c2) {
 // find the 4-colour combination in msxColorTable that best matches all colors in a 8x1 "tile"
 uint32_t findBestMatch(RgbColor* source)
 {
+    benchmarker.start("Find best match");
     uint32_t bestIndex = 0;
     uint32_t bestMse   = 0xffffffff;
 
@@ -278,6 +283,7 @@ uint32_t findBestMatch(RgbColor* source)
         }
     }
 
+    benchmarker.stop();
     return bestIndex;
 }
 
@@ -454,5 +460,6 @@ int main(int argc, char* argv[])
 
     saveBitmap(msxFilename, msxBm);
 
+    benchmarker.print_results();
     return 0;
 }
