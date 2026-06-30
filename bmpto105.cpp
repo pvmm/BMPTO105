@@ -27,6 +27,10 @@
 #include <format>
 #include <cstdlib>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+
 // Measure performance
 #include "timer.cpp"
 Benchmarker benchmarker;
@@ -34,23 +38,19 @@ Benchmarker benchmarker;
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
-union RgbColor
+struct RgbColor
 {
-    struct 
-    {
-        uint8_t unused;
-        uint8_t r;
-        uint8_t g;
-        uint8_t b;
-    } rgb;
-    uint32_t raw;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
 };
 
 struct RgbBitmap
 {
-    uint32_t width;
-    uint32_t height;
-    RgbColor bitmap[1];
+    int width;
+    int height;
+    int channels;
+    uint8_t* data;
 };
 
 struct Msx105Bitmap
@@ -66,97 +66,6 @@ struct Msx105Bitmap
     } bitmap[1];
 };
 
-struct BmpHeader {
-    uint32_t size;
-    uint32_t reserved1;
-    uint32_t offBits;
-    uint32_t bmHeaderSize;
-    uint32_t width;
-    uint32_t height;
-    uint16_t planes;
-    uint16_t bitCount;
-    uint32_t compression;
-    uint32_t sizeImage;
-    uint32_t xPelsPerMeter;
-    uint32_t yPelsPerMeter;
-    uint32_t clrUsed;
-    uint32_t clrImportant;
-};
-
-RgbBitmap* loadBitmap(const char* fileName)
-{
-    FILE* f;
-
-    f = fopen(fileName, "rb");
-
-    if (f == NULL)
-    {
-        std::cout << std::format("ERROR: Failed opening file \"{}\"\n", fileName);
-        return NULL;
-    }
-
-    char fileType[2];
-    if (fread(fileType, 1, 2, f) != 2) {
-        std::cout << "ERROR: Failed reading bitmap header.\n";
-        fclose(f);
-        return NULL;
-    }
-
-    if (memcmp(fileType, "BM", 2) != 0) {
-        std::cout << "ERROR: Not a valid bitmap file.\n";
-        fclose(f);
-        return NULL;
-    }
-
-    BmpHeader bmpHeader;
-    if (fread(&bmpHeader, 1, sizeof(bmpHeader), f) != sizeof(bmpHeader)) {
-        std::cout << "ERROR: Failed reading bitmap header.\n";
-        fclose(f);
-        return NULL;
-    }
-
-    if (bmpHeader.planes != 1 || bmpHeader.compression != 0 || bmpHeader.bitCount != 24)
-    {
-        std::cout << "ERROR: Unsupported bitmap format.\n";
-        fclose(f);
-        return NULL;
-    }
-
-    RgbBitmap* bm = (RgbBitmap*) std::calloc(1, sizeof(RgbBitmap) + bmpHeader.width * bmpHeader.height * sizeof(RgbColor));
-    if (bm == NULL)
-    {
-        std::cout << "ERROR: Failed allocating memory for bitmap.\n";
-        fclose(f);
-        return NULL;
-    }
-
-    bm->width = bmpHeader.width;
-    bm->height = bmpHeader.height;
-
-    for (uint32_t y = 0; y < bm->height; y++)
-    {
-        for (uint32_t x = 0; x < bm->width; x++)
-        {
-            uint8_t color[3];
-            if (fread(color, 1, 3, f) != 3) {
-                std::free(bm);
-                std::cout << "ERROR: Failed reading bitmap data.\n";
-                fclose(f);
-                return NULL;
-            }
-            uint32_t i = (bm->height - y - 1) * bm->width + x;
-            bm->bitmap[i].rgb.b = color[0];
-            bm->bitmap[i].rgb.g = color[1];
-            bm->bitmap[i].rgb.r = color[2];
-        }
-    }
-
-    fclose(f);
-
-    return bm;
-}
-
-
 const uint32_t defaultPalette[16] =
 {
     0x000000, 0x000000, 0x24da24, 0x68ff68, 0x2424ff, 0x4868ff, 0xb62424, 0x48daff,
@@ -169,10 +78,9 @@ void initPalette()
 {
     for (int i = 0; i < 16; i++)
     {
-        msxPalette[i].rgb.unused = 0;
-        msxPalette[i].rgb.r = (uint8_t) ((defaultPalette[i] >> 16) & 0xff);
-        msxPalette[i].rgb.g = (uint8_t) ((defaultPalette[i] >>  8) & 0xff);
-        msxPalette[i].rgb.b = (uint8_t) ((defaultPalette[i] >>  0) & 0xff);
+        msxPalette[i].r = (uint8_t) ((defaultPalette[i] >> 16) & 0xff);
+        msxPalette[i].g = (uint8_t) ((defaultPalette[i] >>  8) & 0xff);
+        msxPalette[i].b = (uint8_t) ((defaultPalette[i] >>  0) & 0xff);
     }
 }
 
@@ -206,30 +114,30 @@ void createColorTable()
                     // 0: even frame bg (bg0) and odd frame bg (bg1)
                     msxColorTable[i][0].msx.c0 = bg0;
                     msxColorTable[i][0].msx.c1 = bg1;
-                    msxColorTable[i][0].rgb.rgb.r  = ((int)msxPalette[bg0].rgb.r + msxPalette[bg1].rgb.r) / 2;
-                    msxColorTable[i][0].rgb.rgb.g  = ((int)msxPalette[bg0].rgb.g + msxPalette[bg1].rgb.g) / 2;
-                    msxColorTable[i][0].rgb.rgb.b  = ((int)msxPalette[bg0].rgb.b + msxPalette[bg1].rgb.b) / 2;
+                    msxColorTable[i][0].rgb.r  = ((int)msxPalette[bg0].r + msxPalette[bg1].r) / 2;
+                    msxColorTable[i][0].rgb.g  = ((int)msxPalette[bg0].g + msxPalette[bg1].g) / 2;
+                    msxColorTable[i][0].rgb.b  = ((int)msxPalette[bg0].b + msxPalette[bg1].b) / 2;
 
                     // 1: even frame fg (fg0) and odd frame bg (bg1)
                     msxColorTable[i][1].msx.c0 = fg0;
                     msxColorTable[i][1].msx.c1 = bg1;
-                    msxColorTable[i][1].rgb.rgb.r  = ((int)msxPalette[fg0].rgb.r + msxPalette[bg1].rgb.r) / 2;
-                    msxColorTable[i][1].rgb.rgb.g  = ((int)msxPalette[fg0].rgb.g + msxPalette[bg1].rgb.g) / 2;
-                    msxColorTable[i][1].rgb.rgb.b  = ((int)msxPalette[fg0].rgb.b + msxPalette[bg1].rgb.b) / 2;
+                    msxColorTable[i][1].rgb.r  = ((int)msxPalette[fg0].r + msxPalette[bg1].r) / 2;
+                    msxColorTable[i][1].rgb.g  = ((int)msxPalette[fg0].g + msxPalette[bg1].g) / 2;
+                    msxColorTable[i][1].rgb.b  = ((int)msxPalette[fg0].b + msxPalette[bg1].b) / 2;
 
                     // 2: even frame bg (bg0) and odd frame fg (fg1)
                     msxColorTable[i][2].msx.c0 = bg0;
                     msxColorTable[i][2].msx.c1 = fg1;
-                    msxColorTable[i][2].rgb.rgb.r  = ((int)msxPalette[bg0].rgb.r + msxPalette[fg1].rgb.r) / 2;
-                    msxColorTable[i][2].rgb.rgb.g  = ((int)msxPalette[bg0].rgb.g + msxPalette[fg1].rgb.g) / 2;
-                    msxColorTable[i][2].rgb.rgb.b  = ((int)msxPalette[bg0].rgb.b + msxPalette[fg1].rgb.b) / 2;
+                    msxColorTable[i][2].rgb.r  = ((int)msxPalette[bg0].r + msxPalette[fg1].r) / 2;
+                    msxColorTable[i][2].rgb.g  = ((int)msxPalette[bg0].g + msxPalette[fg1].g) / 2;
+                    msxColorTable[i][2].rgb.b  = ((int)msxPalette[bg0].b + msxPalette[fg1].b) / 2;
 
                     // 3: even frame fg (fg0) and odd frame fg (fg1)
                     msxColorTable[i][3].msx.c0 = fg0;
                     msxColorTable[i][3].msx.c1 = fg1;
-                    msxColorTable[i][3].rgb.rgb.r  = ((int)msxPalette[fg0].rgb.r + msxPalette[fg1].rgb.r) / 2;
-                    msxColorTable[i][3].rgb.rgb.g  = ((int)msxPalette[fg0].rgb.g + msxPalette[fg1].rgb.g) / 2;
-                    msxColorTable[i][3].rgb.rgb.b  = ((int)msxPalette[fg0].rgb.b + msxPalette[fg1].rgb.b) / 2;
+                    msxColorTable[i][3].rgb.r  = ((int)msxPalette[fg0].r + msxPalette[fg1].r) / 2;
+                    msxColorTable[i][3].rgb.g  = ((int)msxPalette[fg0].g + msxPalette[fg1].g) / 2;
+                    msxColorTable[i][3].rgb.b  = ((int)msxPalette[fg0].b + msxPalette[fg1].b) / 2;
 
                     msxColorTableSize++;
                 }
@@ -239,9 +147,9 @@ void createColorTable()
 }
 
 inline uint32_t COLOR_MSE(const RgbColor& c1, const RgbColor& c2) {
-    int dr = c1.rgb.r - c2.rgb.r;
-    int dg = c1.rgb.g - c2.rgb.g;
-    int db = c1.rgb.b - c2.rgb.b;
+    int dr = c1.r - c2.r;
+    int dg = c1.g - c2.g;
+    int db = c1.b - c2.b;
     return dr*dr + dg*dg + db*db;
 }
 
@@ -288,21 +196,21 @@ uint32_t findBestMatch(RgbColor* source)
     return bestIndex;
 }
 
-Msx105Bitmap* convertBitmap(RgbBitmap* rgbBm)
+Msx105Bitmap* convertImage(RgbBitmap& img)
 {
-    Msx105Bitmap* msxBm = (Msx105Bitmap*) std::calloc(1, sizeof(Msx105Bitmap) + 4 * (rgbBm->width / 8) * rgbBm->height);
-    msxBm->width  = rgbBm->width / 8;
-    msxBm->height = rgbBm->height / 8;
+    Msx105Bitmap* msxBm = (Msx105Bitmap*) std::calloc(1, sizeof(Msx105Bitmap) + 4 * (img.width / 8) * img.height);
+    msxBm->width  = img.width / 8;
+    msxBm->height = img.height / 8;
 
-    for (uint32_t h = 0; h < rgbBm->height; h++)
+    for (uint32_t h = 0; h < img.height; h++)
     {
         std::cout << std::format("\rConverting line {}/{}", h + 1, 8 * msxBm->height);
 
         for (uint32_t w = 0; w < msxBm->width; w++)
         {
-            RgbColor* rgbBitmap = rgbBm->bitmap + h * rgbBm->width + w * 8;
+            RgbColor* ptr = (RgbColor*) (img.data + (h * img.width + w * 8) * img.channels);
 
-            uint32_t idx = findBestMatch(rgbBitmap);
+            uint32_t idx = findBestMatch(ptr);
 
             // select which 4-colour combination of alternating (fg | bg) is more similar to the current pixel.
             RgbColor rgb0 = msxColorTable[idx][0].rgb;
@@ -323,10 +231,10 @@ Msx105Bitmap* convertBitmap(RgbBitmap* rgbBm)
                 // is this really necessary? Best match was already found by findBestMatch. Can't we use
                 // second, third and fourth values?
                 uint32_t t[4] = {
-                    COLOR_MSE(rgb0, rgbBitmap[j]),
-                    COLOR_MSE(rgb1, rgbBitmap[j]),
-                    COLOR_MSE(rgb2, rgbBitmap[j]),
-                    COLOR_MSE(rgb3, rgbBitmap[j])
+                    COLOR_MSE(rgb0, ptr[j]),
+                    COLOR_MSE(rgb1, ptr[j]),
+                    COLOR_MSE(rgb2, ptr[j]),
+                    COLOR_MSE(rgb3, ptr[j])
                 };
 
                 // get smaller distance of all colour combinations again.
@@ -425,29 +333,41 @@ void saveBitmap(const char* fileName, Msx105Bitmap* msxBm)
     fclose(f);
 }
 
+bool loadImage(RgbBitmap& image, char* filename)
+{
+    image.data = stbi_load(filename, &image.width, &image.height, &image.channels, 0);
+
+    if (!image.data) {
+        std::cerr << "Failed to load image.\n" << std::endl;
+        return false;
+    }
+
+    std::cout << "Image size: " << image.width << " x " << image.height << " (" << image.channels << " channels)\n";
+    return true;
+}
+
 int main(int argc, char* argv[])
 {
     if (argc != 2)
     {
-        std::cout << "Usage: " << argv[0] << " <filename.bmp>\n\n";
+        std::cout << "Usage: " << argv[0] << " <image filename>\n\n";
         return 1;
     }
 
-    char* bmpFilename = argv[1];
+    char* imgFilename = argv[1];
 
     createColorTable();
 
-    RgbBitmap* rgbBm = loadBitmap(bmpFilename);
-    if (rgbBm == NULL)
-    {
+    RgbBitmap image;
+    if (!loadImage(image, imgFilename)) {
         return 2;
     }
 
-    Msx105Bitmap* msxBm = convertBitmap(rgbBm);
+    Msx105Bitmap* msxBm = convertImage(image);
 
     // Create filename for destination file (change extension to .si2)
     char msxFilename[512];
-    strcpy(msxFilename, bmpFilename);
+    strcpy(msxFilename, imgFilename);
 
     char* ptr = msxFilename + strlen(msxFilename) - 1;
 
