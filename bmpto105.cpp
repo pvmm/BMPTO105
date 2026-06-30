@@ -30,12 +30,16 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 
 // Measure performance
 #include "timer.cpp"
 Benchmarker benchmarker;
 
+#define TILE_WIDTH 8
+#define NIBBLE_SIZE 4
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
@@ -267,7 +271,7 @@ Msx105Bitmap* convertImage(RgbBitmap& img)
     return msxBm;
 }
 
-void saveBitmap(const std::string& filename, Msx105Bitmap* msxBm)
+void saveBitmapMSX(const std::string& filename, Msx105Bitmap* msxBm)
 {
     FILE* f = fopen(filename.c_str(), "wb");
     if (f == NULL)
@@ -334,6 +338,45 @@ void saveBitmap(const std::string& filename, Msx105Bitmap* msxBm)
     fclose(f);
 }
 
+void saveBitmap105(const std::string& filename, Msx105Bitmap* msx)
+{
+    std::cout << "saveBitmap105 " << msx->width << ", " << msx->height << "\n";
+    const int width = msx->width * 8;
+    const int height = msx->height * 8;
+    const int channels = 3;
+    const int stride = width * channels;
+    std::vector<uint8_t> data(width * height * channels);
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < msx->width; ++x) {
+            for (int tx = 0; tx < 8; ++tx) {
+                uint8_t bit = 1 << ((TILE_WIDTH - 1) - tx);
+                uint8_t c0 = msx->bitmap[y * msx->width + x].c0;
+                uint8_t fg0 = (c0 & 0xf0) >> NIBBLE_SIZE;
+                uint8_t bg0 = (c0 & 0x0f);
+                uint8_t p0 = bit & msx->bitmap[y * msx->width + x].p0;
+                uint8_t c1 = msx->bitmap[y * msx->width + x].c1;
+                uint8_t fg1 = (c1 & 0xf0) >> NIBBLE_SIZE;
+                uint8_t bg1 = (c1 & 0x0f);
+                uint8_t p1 = bit & msx->bitmap[y * msx->width + x].p1;
+                uint8_t r = ((p0 ? msxPalette[fg0].r : msxPalette[bg0].r) + (p1 ? msxPalette[fg1].r : msxPalette[bg1].r)) / 2;
+                uint8_t g = ((p0 ? msxPalette[fg0].g : msxPalette[bg0].g) + (p1 ? msxPalette[fg1].g : msxPalette[bg1].g)) / 2;
+                uint8_t b = ((p0 ? msxPalette[fg0].b : msxPalette[bg0].b) + (p1 ? msxPalette[fg1].b : msxPalette[bg1].b)) / 2;
+
+                data[((y * width) + (x * TILE_WIDTH) + tx) * channels + 0] = r;
+                data[((y * width) + (x * TILE_WIDTH) + tx) * channels + 1] = g;
+                data[((y * width) + (x * TILE_WIDTH) + tx) * channels + 2] = b;
+            }
+        }
+    }
+
+    if (stbi_write_png(filename.c_str(), width, height, channels, data.data(), stride)) {
+        std::cout << "Image saved: " << filename << std::endl;
+    } else {
+        std::cerr << "Failed to save image!" << std::endl;
+    }
+}
+
 bool loadImage(RgbBitmap& image, const std::string& filename)
 {
     image.data = stbi_load(filename.c_str(), &image.width, &image.height, &image.channels, 0);
@@ -366,10 +409,13 @@ int main(int argc, char* argv[])
 
     Msx105Bitmap* msxBm = convertImage(image);
 
-    std::filesystem::path msxFilePath(imgFilename);
-    msxFilePath.replace_extension(".si2");
+    std::filesystem::path filePathMSX(imgFilename);
 
-    saveBitmap(msxFilePath.string(), msxBm);
+    filePathMSX.replace_extension(".si2");
+    saveBitmapMSX(filePathMSX.string(), msxBm);
+
+    filePathMSX.replace_extension(".105.png");
+    saveBitmap105(filePathMSX.string(), msxBm);
 
     benchmarker.print_results();
     return 0;
