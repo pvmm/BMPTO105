@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <format>
 #include <cstdlib>
+#include <filesystem>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -266,16 +267,16 @@ Msx105Bitmap* convertImage(RgbBitmap& img)
     return msxBm;
 }
 
-void saveBitmap(const char* fileName, Msx105Bitmap* msxBm)
+void saveBitmap(const std::string& filename, Msx105Bitmap* msxBm)
 {
-    FILE* f = fopen(fileName, "wb");
+    FILE* f = fopen(filename.c_str(), "wb");
     if (f == NULL)
     {
-        std::cout << std::format("ERROR: Failed opening file \"{}\"\n", fileName);
+        std::cout << std::format("ERROR: Failed opening file \"{}\"\n", filename);
         return;
     }
 
-    std::cout << std::format("Saving image: \"{}\"\n", fileName);
+    std::cout << std::format("Saving image: \"{}\"\n", filename);
 
     uint8_t header[2] = { (uint8_t) msxBm->width, (uint8_t) msxBm->height } ;
 
@@ -333,9 +334,9 @@ void saveBitmap(const char* fileName, Msx105Bitmap* msxBm)
     fclose(f);
 }
 
-bool loadImage(RgbBitmap& image, char* filename)
+bool loadImage(RgbBitmap& image, const std::string& filename)
 {
-    image.data = stbi_load(filename, &image.width, &image.height, &image.channels, 0);
+    image.data = stbi_load(filename.c_str(), &image.width, &image.height, &image.channels, 0);
 
     if (!image.data) {
         std::cerr << "Failed to load image.\n" << std::endl;
@@ -354,7 +355,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    char* imgFilename = argv[1];
+    std::string imgFilename = std::string(argv[1]);
 
     createColorTable();
 
@@ -365,21 +366,10 @@ int main(int argc, char* argv[])
 
     Msx105Bitmap* msxBm = convertImage(image);
 
-    // Create filename for destination file (change extension to .si2)
-    char msxFilename[512];
-    strcpy(msxFilename, imgFilename);
+    std::filesystem::path msxFilePath(imgFilename);
+    msxFilePath.replace_extension(".si2");
 
-    char* ptr = msxFilename + strlen(msxFilename) - 1;
-
-    while (*ptr != '.')
-    {
-        ptr--;
-    }
-    *ptr = 0;
-
-    strcat(msxFilename, ".si2");
-
-    saveBitmap(msxFilename, msxBm);
+    saveBitmap(msxFilePath.string(), msxBm);
 
     benchmarker.print_results();
     return 0;
