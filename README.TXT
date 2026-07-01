@@ -2,7 +2,8 @@
                105 color image viewer for MSX   v1.0
                =====================================
                
-                       (c) 2006 Daniel Vik
+                 Original (c) 2006 Daniel Vik
+                 Modified (c) 2026 Pedro de Medeiros
                        
                        
 Introduction
