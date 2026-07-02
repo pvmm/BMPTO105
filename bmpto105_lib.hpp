@@ -21,8 +21,8 @@
 ******************************************************************************
 */
 #include <cstdint>
-
-// data types
+#include <vector>
+#include <array>
 
 struct RGBColor
 {
@@ -36,7 +36,14 @@ struct RGBBitmap
     int width;
     int height;
     int channels;
-    uint8_t* data; // (r, g, b) data
+    std::vector<uint8_t> data;  // Using vector for automatic memory management
+
+    // Constructor
+    RGBBitmap(int w = 0, int h = 0, int c = 3)
+        : width(w), height(h), channels(c), data(w * h * c, 0) {}
+
+    RGBBitmap(int w, int h, int c, const std::vector<uint8_t>& d)
+        : width(w), height(h), channels(c), data(d) {}
 };
 
 struct MSX105Bitmap
@@ -50,6 +57,10 @@ struct MSX105Bitmap
         uint8_t c1;
         uint8_t p1;
     } bitmap[]; // grows dinamically
+
+    // Constructor
+    MSX105Bitmap(int w = 0, int h = 0)
+        : width(w), height(h) {}
 };
 
 struct Color105
@@ -60,3 +71,26 @@ struct Color105
     } msx;
     RGBColor rgb;
 };
+
+class BmpTo105 {
+public:
+        BmpTo105(const std::array<uint32_t, 16>& palette_);
+
+        int initPalette(const std::array<uint32_t, 16>& palette_);
+
+        const std::vector<RGBColor>& getPalette();
+
+        MSX105Bitmap* convertImage(RGBBitmap& image);
+
+private:
+        uint32_t findBestMatch(RGBColor* source);
+
+        std::vector<RGBColor> palette;
+        std::vector<std::array<Color105, 4>> colorComboTable;
+
+#ifdef USE_DEBUG
+        // Measure performance
+        Benchmarker benchmarker;
+#endif
+};
+

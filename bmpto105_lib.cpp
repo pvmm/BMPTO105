@@ -20,6 +20,7 @@
 **
 ******************************************************************************
 */
+#include <pybind11/pybind11.h>
 #include <iostream>
 #include <fstream>
 #include <cstring>
@@ -30,6 +31,8 @@
 #include <vector>
 
 #include "bmpto105_lib.hpp"
+
+namespace py = pybind11;
 
 // special macros
 #ifdef USE_DEBUG
@@ -57,6 +60,7 @@
         static_cast<uint8_t>((pal[c0].b + pal[c1].b) / 2)  \
     }
 
+[[maybe_unused]]
 static void printColorCombo(std::array<Color105, 4>& colors)
 {
 	std::cerr << "color combo: "
@@ -66,6 +70,7 @@ static void printColorCombo(std::array<Color105, 4>& colors)
 			<< (int)colors[3].rgb.r << "," << (int)colors[3].rgb.g << "," << (int)colors[3].rgb.b << "\n";
 }
 
+[[maybe_unused]]
 static void printRGBColor(RGBColor& color)
 {
 	std::cerr << "color: " << (int)color.r << "," << (int)color.g << "," << (int)color.b << "\n";
@@ -116,41 +121,21 @@ static inline uint32_t COLOR_MSE(const RGBColor& c1, const RGBColor& c2) {
 	return dr*dr + dg*dg + db*db;
 }
 
-class ModuleEngine {
-public:
-	ModuleEngine(const std::array<uint32_t, 16>& palette_)
-	{
-			int paletteSize = initPalette(palette_);
-			int colorComboSize = createColorCombo(palette, colorComboTable);
+BmpTo105::BmpTo105(const std::array<uint32_t, 16>& palette_)
+{
+	int paletteSize = initPalette(palette_);
+	int colorComboSize = createColorCombo(palette, colorComboTable);
 
-			CONSOLE_OFF(
-				std::cout << "palette size = " << paletteSize << "\n";
-				std::cout << "color table size = " << colorComboSize << "\n";
-			);
+	CONSOLE_OFF(
+		std::cout << "palette size = " << paletteSize << "\n";
+		std::cout << "color table size = " << colorComboSize << "\n";
+	);
 
-			(void)paletteSize;
-			(void)colorComboSize;
-	}
+	(void)paletteSize;
+	(void)colorComboSize;
+}
 
-	int initPalette(const std::array<uint32_t, 16>& palette_);
-
-	const std::vector<RGBColor>& getPalette();
-
-	MSX105Bitmap* convertImage(RGBBitmap& image);
-
-private:
-	uint32_t findBestMatch(RGBColor* source);
-
-	std::vector<RGBColor> palette;
-	std::vector<std::array<Color105, 4>> colorComboTable;
-
-#ifdef USE_DEBUG
-	// Measure performance
-	Benchmarker benchmarker;
-#endif
-};
-
-int ModuleEngine::initPalette(const std::array<uint32_t, 16>& palette_)
+int BmpTo105::initPalette(const std::array<uint32_t, 16>& palette_)
 {
 	palette.reserve(palette_.size());
 	for (unsigned int i = 0; i < palette_.size(); i++)
@@ -164,13 +149,13 @@ int ModuleEngine::initPalette(const std::array<uint32_t, 16>& palette_)
 	return palette.size();
 }
 
-const std::vector<RGBColor>& ModuleEngine::getPalette()
+const std::vector<RGBColor>& BmpTo105::getPalette()
 {
 	return palette;
 }
 
 // find the 4-colour combination in msxColorTable that best matches all colors in a 8x1 "tile"
-uint32_t ModuleEngine::findBestMatch(RGBColor* source)
+uint32_t BmpTo105::findBestMatch(RGBColor* source)
 {
 	DEBUG(
 		benchmarker.start("Find best match");
@@ -218,7 +203,7 @@ uint32_t ModuleEngine::findBestMatch(RGBColor* source)
 	return bestIndex;
 }
 
-MSX105Bitmap* ModuleEngine::convertImage(RGBBitmap& img)
+MSX105Bitmap* BmpTo105::convertImage(RGBBitmap& img)
 {
 	MSX105Bitmap* msx = (MSX105Bitmap*) std::calloc(1, sizeof(MSX105Bitmap) + 4 * (img.width / 8) * img.height);
 	msx->width  = img.width / 8;
@@ -232,7 +217,7 @@ MSX105Bitmap* ModuleEngine::convertImage(RGBBitmap& img)
 
 		for (uint32_t w = 0; w < msx->width; w++)
 		{
-			RGBColor* ptr = (RGBColor*) (img.data + (h * img.width + w * 8) * img.channels);
+			RGBColor* ptr = (RGBColor*) (img.data.data() + (h * img.width + w * 8) * img.channels);
 
 			uint32_t idx = findBestMatch(ptr);
 			CONSOLE(std::cerr << "findBestMatch " << idx << "\n";);
