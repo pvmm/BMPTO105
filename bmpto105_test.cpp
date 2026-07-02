@@ -1,6 +1,6 @@
 /*****************************************************************************
 **
-** Copyright (C) 2006 Daniel Vik, 2026 Pedro de Medeiros
+** Copyright (C) 2026 Pedro de Medeiros
 **
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
@@ -35,12 +35,12 @@
 
 #define USE_DEBUG
 #define USE_CONSOLE
-#include "bmpto105_lib.cpp"
+#include "bmpto105/libbmpto105.cpp"
 
 #define TILE_WIDTH 8
 #define NIBBLE_SIZE 4
 
-void saveBitmapMSX(const std::string& filename, const MSX105Bitmap* msx)
+void saveBitmapMSX(const std::string& filename, const MSXBitmap_105* msx)
 {
 	FILE* f = fopen(filename.c_str(), "wb");
 	if (f == NULL)
@@ -109,7 +109,7 @@ void saveBitmapMSX(const std::string& filename, const MSX105Bitmap* msx)
 	fclose(f);
 }
 
-void saveBitmap105(const std::string& filename, const MSX105Bitmap* msx, const std::vector<RGBColor>& palette)
+void saveBitmap105(const std::string& filename, const MSXBitmap_105* msx, const std::vector<RGBColor>& palette)
 {
 	CONSOLE(
 		std::cout << "Save " << msx->width << "x" << msx->height << " 105-colour bitmap\n";
@@ -145,25 +145,26 @@ void saveBitmap105(const std::string& filename, const MSX105Bitmap* msx, const s
 
 	if (stbi_write_png(filename.c_str(), width, height, channels, data.data(), stride)) {
 		CONSOLE(
-			std::cout << "Image saved: " << filename << std::endl;
+			std::cout << "Image saved as '" << filename << "'\n";
 		);
 	} else {
-		std::cerr << "Failed to save image!" << std::endl;
+		std::cerr << "Failed to save image!\n";
 	}
 }
 
 bool loadImage(RGBBitmap& image, const std::string& filename)
 {
-	image.data = stbi_load(filename.c_str(), &image.width, &image.height, &image.channels, 0);
-
-	if (!image.data) {
-		std::cerr << "Failed to load image.\n" << std::endl;
+	const uint8_t* data = stbi_load(filename.c_str(), &image.width, &image.height, &image.channels, 0);
+	if (!data) {
+		std::cerr << "Failed to load image.\n";
 		return false;
 	}
 
 	CONSOLE_OFF(
 		std::cout << "Image size: " << image.width << " x " << image.height << " (" << image.channels << " channels)\n";
 	);
+
+	image.data = std::span<const uint8_t>(data, image.width * image.height * image.channels);
 	return true;
 }
 
@@ -179,7 +180,7 @@ int main(int argc, char* argv[])
 		0x000000, 0x000000, 0x24da24, 0x68ff68, 0x2424ff, 0x4868ff, 0xb62424, 0x48daff,
 		0xff2424, 0xff6868, 0xdada24, 0xdada91, 0x249124, 0xda48b6, 0xb6b6b6, 0xffffff
 	};
-	ModuleEngine bmpTo105(msxPalette);
+	BmpTo105 bmpTo105(msxPalette);
 	auto palette = bmpTo105.getPalette();
 
 	std::string imgFilename = std::string(argv[1]);
@@ -189,7 +190,7 @@ int main(int argc, char* argv[])
 	    return 2;
 	}
 
-	MSX105Bitmap* msx = bmpTo105.convertImage(image);
+	MSXBitmap_105* msx = bmpTo105.convertImage(image);
 
 	std::filesystem::path filePathMSX(imgFilename);
 
