@@ -28,17 +28,19 @@
 #include <cstdlib>
 #include <filesystem>
 #include <vector>
+#include <tuple>
+#include <algorithm>
 
-#include "bmpto105_lib.hpp"
+#include "libbmpto105.hpp"
 
 // special macros
-#ifdef USE_DEBUG
-#include "timer.cpp"
+#ifdef _USE_DEBUG_
+#include "benchmarker.cpp"
 #define DEBUG(x) do { x; } while (0)
 #else
 #define DEBUG(x)
 #endif
-#ifdef USE_CONSOLE
+#ifdef _USE_CONSOLE_
 #define CONSOLE(x) do { x; } while (0)
 #else
 #define CONSOLE(x)
@@ -50,14 +52,17 @@
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 #define MAKE_COLOR105(c0, c1, pal) \
-    Color105{ \
-        c0, c1, \
-        static_cast<uint8_t>((pal[c0].r + pal[c1].r) / 2), \
-        static_cast<uint8_t>((pal[c0].g + pal[c1].g) / 2), \
-        static_cast<uint8_t>((pal[c0].b + pal[c1].b) / 2)  \
-    }
+	Color_105{ \
+		{c0, c1}, \
+		{ \
+			static_cast<uint8_t>((pal[c0].r + pal[c1].r) / 2), \
+			static_cast<uint8_t>((pal[c0].g + pal[c1].g) / 2), \
+			static_cast<uint8_t>((pal[c0].b + pal[c1].b) / 2)  \
+		} \
+	}
 
-static void printColorCombo(std::array<Color105, 4>& colors)
+[[maybe_unused]]
+static void printColorCombo(std::array<Color_105, 4>& colors)
 {
 	std::cerr << "color combo: "
 			<< (int)colors[0].rgb.r << "," << (int)colors[0].rgb.g << "," << (int)colors[0].rgb.b << ", "
@@ -66,12 +71,13 @@ static void printColorCombo(std::array<Color105, 4>& colors)
 			<< (int)colors[3].rgb.r << "," << (int)colors[3].rgb.g << "," << (int)colors[3].rgb.b << "\n";
 }
 
+[[maybe_unused]]
 static void printRGBColor(RGBColor& color)
 {
 	std::cerr << "color: " << (int)color.r << "," << (int)color.g << "," << (int)color.b << "\n";
 }
 
-static int createColorCombo(std::vector<RGBColor>& palette, std::vector<std::array<Color105, 4>>& colorCombo)
+int createColorCombo(const std::vector<RGBColor>& palette, std::vector<std::array<Color_105, 4>>& colorCombo)
 {
 	colorCombo.reserve(6020);
 
@@ -116,41 +122,50 @@ static inline uint32_t COLOR_MSE(const RGBColor& c1, const RGBColor& c2) {
 	return dr*dr + dg*dg + db*db;
 }
 
-class ModuleEngine {
-public:
-	ModuleEngine(const std::array<uint32_t, 16>& palette_)
-	{
-			int paletteSize = initPalette(palette_);
-			int colorComboSize = createColorCombo(palette, colorComboTable);
+// Constructor taking tuple-based palette
+BmpTo105::BmpTo105(const std::span<const std::tuple<uint8_t, uint8_t, uint8_t>>& palette_)
+{
+	CONSOLE_OFF(
+		std::cout << "Constructor with tuple span\n";
+	);
+	int paletteSize = initPalette(palette_);
+	int colorComboSize = createColorCombo(palette, colorComboTable);
+	(void)paletteSize;
+	(void)colorComboSize;
+}
 
-			CONSOLE_OFF(
-				std::cout << "palette size = " << paletteSize << "\n";
-				std::cout << "color table size = " << colorComboSize << "\n";
-			);
+// Constructor taking uint32_t-based palette
+BmpTo105::BmpTo105(const std::span<const uint32_t>& palette_)
+{
+	CONSOLE_OFF(
+		std::cout << "Constructor with uint32_t span\n";
+	);
+	int paletteSize = initPalette(palette_);
+	int colorComboSize = createColorCombo(palette, colorComboTable);
 
-			(void)paletteSize;
-			(void)colorComboSize;
+	CONSOLE_OFF(
+		std::cout << "palette size = " << paletteSize << "\n";
+		std::cout << "color table size = " << colorComboSize << "\n";
+	);
+
+	(void)paletteSize;
+	(void)colorComboSize;
+}
+
+int BmpTo105::initPalette(const std::span<const std::tuple<uint8_t, uint8_t, uint8_t>>& palette_)
+{
+	palette.reserve(palette_.size());
+	for (const auto& color_tuple : palette_) {
+		RGBColor color;
+		color.r = std::get<0>(color_tuple);
+		color.g = std::get<1>(color_tuple);
+		color.b = std::get<2>(color_tuple);
+		palette.push_back(color);
 	}
+	return palette.size();
+}
 
-	int initPalette(const std::array<uint32_t, 16>& palette_);
-
-	const std::vector<RGBColor>& getPalette();
-
-	MSX105Bitmap* convertImage(RGBBitmap& image);
-
-private:
-	uint32_t findBestMatch(RGBColor* source);
-
-	std::vector<RGBColor> palette;
-	std::vector<std::array<Color105, 4>> colorComboTable;
-
-#ifdef USE_DEBUG
-	// Measure performance
-	Benchmarker benchmarker;
-#endif
-};
-
-int ModuleEngine::initPalette(const std::array<uint32_t, 16>& palette_)
+int BmpTo105::initPalette(const std::span<const uint32_t>& palette_)
 {
 	palette.reserve(palette_.size());
 	for (unsigned int i = 0; i < palette_.size(); i++)
@@ -164,13 +179,13 @@ int ModuleEngine::initPalette(const std::array<uint32_t, 16>& palette_)
 	return palette.size();
 }
 
-const std::vector<RGBColor>& ModuleEngine::getPalette()
+const std::vector<RGBColor>& BmpTo105::getPalette() const
 {
 	return palette;
 }
 
 // find the 4-colour combination in msxColorTable that best matches all colors in a 8x1 "tile"
-uint32_t ModuleEngine::findBestMatch(RGBColor* source)
+uint32_t BmpTo105::findBestMatch(RGBColor* source)
 {
 	DEBUG(
 		benchmarker.start("Find best match");
@@ -218,9 +233,9 @@ uint32_t ModuleEngine::findBestMatch(RGBColor* source)
 	return bestIndex;
 }
 
-MSX105Bitmap* ModuleEngine::convertImage(RGBBitmap& img)
+MSXBitmap_105* BmpTo105::convertImage(RGBBitmap& img)
 {
-	MSX105Bitmap* msx = (MSX105Bitmap*) std::calloc(1, sizeof(MSX105Bitmap) + 4 * (img.width / 8) * img.height);
+	MSXBitmap_105* msx = (MSXBitmap_105*) std::calloc(1, sizeof(MSXBitmap_105) + 4 * (img.width / 8) * img.height);
 	msx->width  = img.width / 8;
 	msx->height = img.height / 8;
 
@@ -232,7 +247,7 @@ MSX105Bitmap* ModuleEngine::convertImage(RGBBitmap& img)
 
 		for (uint32_t w = 0; w < msx->width; w++)
 		{
-			RGBColor* ptr = (RGBColor*) (img.data + (h * img.width + w * 8) * img.channels);
+			RGBColor* ptr = (RGBColor*) (img.ref.data() + (h * img.width + w * 8) * img.channels);
 
 			uint32_t idx = findBestMatch(ptr);
 			CONSOLE(std::cerr << "findBestMatch " << idx << "\n";);
@@ -297,4 +312,3 @@ MSX105Bitmap* ModuleEngine::convertImage(RGBBitmap& img)
 
 	return msx;
 }
-
