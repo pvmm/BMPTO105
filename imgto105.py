@@ -8,8 +8,10 @@ from typing import Any, Final, cast
 from PIL import Image
 from dataclasses import dataclass
 
-
 TILE_WIDTH = TILE_HEIGHT = 8
+# specially made for 105-colours bitmap
+TILE_ROW_WIDTH = 4 # len([fg0, bg0, fg1, bg1])
+
 debug = print
 
 # default palette
@@ -78,11 +80,28 @@ class MSXTile105:
 
 class MSXRow105:
     width: int
-    data: list[MSXTile105]
+    _data: list[MSXTile105]
 
-    def __init__(self, width):
-        self.width = width
-        self.data = [MSXTile105(0, 0, 0, 0) for _ in range(self.width)]
+    def __init__(self, width: int, data: list[int] | None = None):
+        """width: number of tiles horizontally"""
+        if data is None:
+            data = [0] * TILE_ROW_WIDTH * width
+        else:
+            if len(data) / TILE_ROW_WIDTH != width:
+                raise ValueError('data size and specified width don\'t match')
+            self.data = data
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, data):
+        if len(data) % TILE_ROW_WIDTH != 0:
+            raise ValueError(f'data is not a multiple of {TILE_ROW_WIDTH}')
+        self._data = [MSXTile(data[i : i + TILE_ROW_WIDTH]) for i in range(0, len(data), TILE_ROW_WIDTH)]
+        # overwrite width 
+        self.width = len(data) // TILE_ROW_WIDTH
 
     def __getitem__(self, x):
         return self.data[x]
@@ -91,12 +110,29 @@ class MSXRow105:
 class MSXBitmap105:
     width: int
     height: int
-    data: list[MSXRow105]
+    _data: list[MSXRow105]
 
-    def __init__(self, width: int, height: int):
-        self.width = width // TILE_WIDTH
-        self.height = height // TILE_HEIGHT # tile based width and height
-        self.data = [MSXRow105(self.width) for _ in range(height)]
+    def __init__(self, width: int, height: int, data: list[int] | None = None):
+        """height: number of rows vertically, width: number of tiles (not pixels) horizontally"""
+        if data is None:
+            self.data = [0] * width * height
+        else:
+            if len(data) != height:
+                raise ValueError('data size and specified height don\'t match')
+            self.data = data
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, data):
+        width = len(data[0])
+        height = len(data)
+        self._data = [MSXRow105(width, data[i : i + width]) for i in range(0, height, width)]
+        # overwrite dimensions
+        self.width = width
+        self.height = height
 
     def __getitem__(self, y):
         return self.data[y]
@@ -220,25 +256,25 @@ def save_msx_bitmap(filename: str, image: MSXBitmap105) -> None:
         file.write(struct.pack('BB', image.width, image.height))
 
         # Save patterns for even image
-        for y in range(0, image.height * TILE_HEIGHT, TILE_HEIGHT):
-            s = slice(y, y + TILE_HEIGHT)
+        for y in range(0, image.height, TILE_HEIGHT):
+            s = slice(y, y + TILE_HEIGHT) # get the tile content from height to height + 8
             for x in range(0, image.width):
                 file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p0 for pixel in [row[x] for row in image[s]]]))
 
         # Save colours for even image
-        for y in range(0, image.height * TILE_HEIGHT, TILE_HEIGHT):
+        for y in range(0, image.height, TILE_HEIGHT):
             s = slice(y, y + TILE_HEIGHT)
             for x in range(0, image.width):
                 file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c0 for pixel in [row[x] for row in image[s]]]))
 
         # Save patterns for odd image
-        for y in range(0, image.height * TILE_HEIGHT, TILE_HEIGHT):
+        for y in range(0, image.height, TILE_HEIGHT):
             s = slice(y, y + TILE_HEIGHT)
             for x in range(0, image.width):
                 file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p1 for pixel in [row[x] for row in image[s]]]))
 
         # Save colours for even image
-        for y in range(0, image.height * TILE_HEIGHT, TILE_HEIGHT):
+        for y in range(0, image.height, TILE_HEIGHT):
             s = slice(y, y + TILE_HEIGHT)
             for x in range(0, image.width):
                 file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c1 for pixel in [row[x] for row in image[s]]]))
@@ -247,7 +283,7 @@ def save_msx_bitmap(filename: str, image: MSXBitmap105) -> None:
 
 
 def save_bitmap(filename: str, src: MSXBitmap105, palette: list[RGBColor]) -> None:
-    dst = Image.new('RGB', (src.width * TILE_WIDTH, src.height * TILE_HEIGHT))
+    dst = Image.new('RGB', (src.width * TILE_WIDTH, src.height))
     width, height = dst.size
     #data = dst.get_flattened_data()
 
