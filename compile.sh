@@ -15,5 +15,4 @@ if [ ! -f "bmpto105/libbmpto105.so" ]; then
 fi
 
 echo "You can now import bmpto105 in Python."
-#python bmpto105.py
-python bmpto105_test.py castle.png
+python tests/bmpto105_test.py castle.png
