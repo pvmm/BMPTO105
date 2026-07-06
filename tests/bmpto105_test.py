@@ -24,6 +24,8 @@
 """
 
 import sys
+
+sys.path.append('..')
 import bmpto105
 
 from bmpto105 import BmpTo105

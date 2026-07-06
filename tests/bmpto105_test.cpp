@@ -35,12 +35,12 @@
 
 #define USE_DEBUG
 #define USE_CONSOLE
-#include "bmpto105/libbmpto105.cpp"
+#include "../bmpto105/libbmpto105.cpp"
 
 #define TILE_WIDTH 8
 #define NIBBLE_SIZE 4
 
-void saveBitmapMSX(const std::string& filename, const MSXBitmap_105* msx)
+void saveMSXBitmap(const std::string& filename, const MSXBitmap_105* msx)
 {
 	FILE* f = fopen(filename.c_str(), "wb");
 	if (f == NULL)
@@ -109,7 +109,7 @@ void saveBitmapMSX(const std::string& filename, const MSXBitmap_105* msx)
 	fclose(f);
 }
 
-void saveBitmap105(const std::string& filename, const MSXBitmap_105* msx, const std::vector<RGBColor>& palette)
+void saveBitmap(const std::string& filename, const MSXBitmap_105* msx, const std::vector<RGBColor>& palette)
 {
 	CONSOLE(
 		std::cout << "Save " << msx->width << "x" << msx->height << " 105-colour bitmap\n";
@@ -164,7 +164,7 @@ bool loadImage(RGBBitmap& image, const std::string& filename)
 		std::cout << "Image size: " << image.width << " x " << image.height << " (" << image.channels << " channels)\n";
 	);
 
-	image.data = std::span<const uint8_t>(data, image.width * image.height * image.channels);
+	image.ref = std::span<const uint8_t>(data, image.width * image.height * image.channels);
 	return true;
 }
 
@@ -195,11 +195,12 @@ int main(int argc, char* argv[])
 	std::filesystem::path filePathMSX(imgFilename);
 
 	filePathMSX.replace_extension(".si2");
-	saveBitmapMSX(filePathMSX.string(), msx);
+	saveMSXBitmap(filePathMSX.string(), msx);
 
 	filePathMSX.replace_extension(".105.png");
-	saveBitmap105(filePathMSX.string(), msx, palette);
+	saveBitmap(filePathMSX.string(), msx, palette);
 
 	//benchmarker.print_results();
+	std::cout << "✅ execution successful!\n";
 	return 0;
 }
