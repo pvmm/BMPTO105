@@ -103,3 +103,29 @@ class MSXBitmap_105:
     def __getitem__(self, y):
         return self.data[y]
 
+    def stats(self, begin: int = 0, end: int = 192):
+        """Calculate how many tiles are actually used and how many repeats."""
+        stg = {}
+        rep = 0
+        image = self
+        for y in range(begin, end, TILE_HEIGHT):
+            s = slice(y, y + TILE_HEIGHT) # get the tile content from height to height + 8
+            for x in range(0, image.width):
+                pat = ''.join([f'{pixel.p0:02x}' for pixel in [row[x] for row in image[s]]])
+                col = ''.join([f'{pixel.c0:02x}' for pixel in [row[x] for row in image[s]]])
+                key = f'{pat}:{col}'
+                if key in stg:
+                    rep += 1
+                else:
+                    stg[key] = True
+
+                pat = ''.join([f'{pixel.p1:02x}' for pixel in [row[x] for row in image[s]]])
+                col = ''.join([f'{pixel.c1:02x}' for pixel in [row[x] for row in image[s]]])
+                key = f'{pat}:{col}'
+                if key in stg:
+                    rep += 1
+                else:
+                    stg[key] = True
+
+        print(f'range: {begin:03d}-{end:03d}: size: {len(stg)}{'*' if len(stg) > 256 else ''}, repetition: {rep}')
+

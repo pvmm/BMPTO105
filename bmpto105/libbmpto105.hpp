@@ -56,7 +56,7 @@ struct RGBBitmap
 	RGBBitmap() = default;
 
 	RGBBitmap(int w, int h, int c, std::vector<uint8_t> d = {})
-		: width(w), height(h), channels(c), data(d), ref(d.data(), w * h * c) {}
+		: width(w), height(h), channels(c), data(d), ref(data.data(), w * h * c) {}
 
 	RGBBitmap(int w, int h, int c, const uint8_t* data)
 		: width(w), height(h), channels(c), data(), ref(data, w * h * c) {}

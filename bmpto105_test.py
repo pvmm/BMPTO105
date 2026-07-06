@@ -55,6 +55,9 @@ def main():
     # Create default palette and color combo table
     engine = BmpTo105(palette)
     dst = engine.convert(src)
+    dst.stats(0, 64)
+    dst.stats(64, 128)
+    dst.stats(128, 192)
 
     # Save MSX bitmap and equivalent 105-colours bitmap
     bmpto105.save_msx_bitmap(str(path.with_suffix('.si2')), dst)
