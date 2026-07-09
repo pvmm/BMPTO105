@@ -56,8 +56,11 @@ def main():
 
     # Create default palette and color combo table
     engine = BmpTo105(palette)
+
+    # Convert png image to 105 mode
     dst = engine.convert(src)
 
+    # Print the stats of tile use
     rep, total = dst.stats(0, 64)
     print(f'range: {0:03d}-{64:03d}: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
     rep, total = dst.stats(64, 128)
@@ -66,8 +69,8 @@ def main():
     print(f'range: {128:03d}-{192:03d}: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
 
     # Save MSX bitmap and equivalent 105-colours bitmap
-    bmpto105.save_msx_bitmap(str(path.with_suffix('.si2')), dst)
-    bmpto105.save_bitmap(str(path.with_suffix('.105.png')), dst)
+    dst.save(str(path.with_suffix('.si2')))
+    dst.save_bitmap(str(path.with_suffix('.105.png')))
 
 
 if __name__ == '__main__':
