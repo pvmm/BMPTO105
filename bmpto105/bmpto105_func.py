@@ -20,17 +20,21 @@ def open_bitmap(filename: str) -> Image:
     return image
 
 
-def save_bitmap(filename: str, src: MSXBitmap_105) -> None:
-    """save MSXBitmap_105 as a PNG image"""
+def to_image(src: MSXBitmap_105) -> Image:
+    """convert MSXBitmap_105 to PIL Image"""
     dst = Image.new('RGB', (src.width * TILE_WIDTH, src.height))
     width, height = dst.size
-
     for y in range(height):
         for x in range(src.width):
             for tx in range(TILE_WIDTH):
                 pixel = src[y][x].to_rgb(tx, src.palette)
                 dst.putpixel((x * TILE_WIDTH + tx, y), pixel)
-    dst.save(filename)
+    return dst
+
+
+def save_bitmap(filename: str, src: MSXBitmap_105) -> None:
+    """save MSXBitmap_105 as a PNG image"""
+    to_image(src).save(filename)
 
 
 def save_msx_bitmap(filename: str, image: MSXBitmap_105) -> None:
