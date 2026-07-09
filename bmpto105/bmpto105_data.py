@@ -103,11 +103,12 @@ class MSXBitmap_105:
     def __getitem__(self, y):
         return self.data[y]
 
-    def stats(self, begin: int = 0, end: int = 192):
+    def stats(self, begin: int = 0, end: int | None = None) -> tuple[int, int]:
         """Calculate how many tiles are actually used and how many repeats."""
         stg = {}
         rep = 0
         image = self
+        if end is None: end = self.height
         for y in range(begin, end, TILE_HEIGHT):
             s = slice(y, y + TILE_HEIGHT) # get the tile content from height to height + 8
             for x in range(0, image.width):
@@ -126,6 +127,5 @@ class MSXBitmap_105:
                     rep += 1
                 else:
                     stg[key] = True
-
-        print(f'range: {begin:03d}-{end:03d}: size: {len(stg)}{'*' if len(stg) > 256 else ''}, repetition: {rep}')
-
+        # return (number of repetitions, number of used tiles) for the begin..end interval
+        return rep, len(stg)
