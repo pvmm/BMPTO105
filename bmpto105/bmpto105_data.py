@@ -1,4 +1,7 @@
+import struct
+
 from dataclasses import dataclass
+from PIL import Image
 
 # constants
 TILE_WIDTH = TILE_HEIGHT = 8
@@ -17,6 +20,7 @@ class MSXTile_105:
     p0: int
     c1: int
     p1: int
+
 
     def rgb(self, x, palette: list[RGBColor]) -> tuple[int, int, int]:
         """Return RGB pixel value equivalent to MSX 105-colour bitmap."""
@@ -37,6 +41,7 @@ class MSXRow_105:
     width: int
     _data: list[MSXTile_105]
 
+
     def __init__(self, width: int, data: list[int] | None = None):
         """width: number of tiles horizontally"""
         self.width = width
@@ -46,6 +51,7 @@ class MSXRow_105:
             if len(data) / TILE_ROW_WIDTH != self.width:
                 raise ValueError('105-colour image row size and specified width don\'t match')
             self.data = data
+
 
     @property
     def data(self):
@@ -57,6 +63,7 @@ class MSXRow_105:
             raise ValueError(f'105-colour image data is not a multiple of {TILE_ROW_WIDTH}')
         self._data = [MSXTile_105(*data[i : i + TILE_ROW_WIDTH]) for i in range(0, len(data), TILE_ROW_WIDTH)]
 
+
     def __getitem__(self, x):
         return self.data[x]
 
@@ -66,6 +73,7 @@ class MSXBitmap_105:
     height: int
     _palette: list[RGBColor]
     _data: list[MSXRow_105]
+
 
     def __init__(self, width: int, height: int, palette: list[RGBColor], data: list[int] | None = None):
         """height: number of rows vertically, width: number of tiles (not pixels) horizontally"""
@@ -77,6 +85,7 @@ class MSXBitmap_105:
         else:
             self.data = data
 
+
     @property
     def palette(self):
         return self._palette
@@ -86,6 +95,7 @@ class MSXBitmap_105:
         if len(palette) != 16:
             raise ValueError(f'16 colours list of RGBColor structure expected')
         self._palette = palette
+
 
     @property
     def data(self):
@@ -100,11 +110,13 @@ class MSXBitmap_105:
         stride = self.width * TILE_ROW_WIDTH
         self._data = [MSXRow_105(self.width, data[i : i + stride]) for i in range(0, len(data), stride)]
 
+
     def __getitem__(self, y):
         return self.data[y]
 
+
     def stats(self, begin: int = 0, end: int | None = None) -> tuple[int, int]:
-        """Calculate how many tiles are actually used and how many repeats."""
+        """Count how many tiles repeat and the total amount"""
         stg = {}
         rep = 0
         image = self
@@ -129,3 +141,54 @@ class MSXBitmap_105:
                     stg[key] = True
         # return (number of repetitions, number of used tiles) for the begin..end interval
         return rep, len(stg)
+
+
+    def save(self, filename: str) -> None:
+        """Save MSXBitmap_105 to disk"""
+        debug(f'Saving "{filename}"... ', end='')
+        with open(filename, 'wb') as file:
+            # dimensions header
+            file.write(struct.pack('BB', self.width, self.height // 8))
+
+            # Save patterns for even image
+            for y in range(0, self.height, TILE_HEIGHT):
+                s = slice(y, y + TILE_HEIGHT) # get the tile content from height to height + 8
+                for x in range(0, self.width):
+                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p0 for pixel in [row[x] for row in self[s]]]))
+
+            # Save colours for even image
+            for y in range(0, self.height, TILE_HEIGHT):
+                s = slice(y, y + TILE_HEIGHT)
+                for x in range(0, self.width):
+                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c0 for pixel in [row[x] for row in self[s]]]))
+
+            # Save patterns for odd image
+            for y in range(0, self.height, TILE_HEIGHT):
+                s = slice(y, y + TILE_HEIGHT)
+                for x in range(0, self.width):
+                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p1 for pixel in [row[x] for row in self[s]]]))
+
+            # Save colours for even image
+            for y in range(0, self.height, TILE_HEIGHT):
+                s = slice(y, y + TILE_HEIGHT)
+                for x in range(0, self.width):
+                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c1 for pixel in [row[x] for row in self[s]]]))
+        debug('Done!')
+
+
+    def to_image(self) -> Image:
+        """convert MSXBitmap_105 to PIL Image"""
+        dst = Image.new('RGB', (self.width * TILE_WIDTH, self.height))
+        width, height = dst.size
+        for y in range(height):
+            for x in range(self.width):
+                for tx in range(TILE_WIDTH):
+                    pixel = self[y][x].rgb(tx, self.palette)
+                    dst.putpixel((x * TILE_WIDTH + tx, y), pixel)
+        return dst
+
+
+    def save_bitmap(self, filename: str) -> None:
+        """save MSXBitmap_105 as a PNG image"""
+        self.to_image().save(filename)
+
