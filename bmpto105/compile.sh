@@ -14,7 +14,7 @@ if [ ! -f "libbmpto105.so" ]; then
 	echo "Compiling bmpto105 module..."
 	g++ -O3 -Wall -shared -std=c++20 -fPIC -Wbuiltin-macro-redefined -Wunused-function \
 	    $(python3 -m pybind11 --includes) $(python3-config --includes --ldflags) \
-	    libbmpto105.cpp bmpto105_py.cpp -o libbmpto105.so
+	    libbmpto105.cpp bmpto105_py.cpp -o libbmpto105.so # -D_USE_CONSOLE_ -D_USE_DEBUG_
 	echo "✅ libbmpto105 compilation successful!"
 fi
 

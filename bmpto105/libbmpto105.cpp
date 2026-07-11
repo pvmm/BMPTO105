@@ -35,7 +35,6 @@
 
 // special macros
 #ifdef _USE_DEBUG_
-#include "benchmarker.cpp"
 #define DEBUG(x) do { x; } while (0)
 #else
 #define DEBUG(x)
