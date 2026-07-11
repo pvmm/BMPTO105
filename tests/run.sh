@@ -8,7 +8,7 @@ source ../bmpto105/compile.sh $1
 set -e
 
 g++ -o bmpto105_test bmpto105_test.cpp
-echo "✅ bmpto105_test compilation successful!"
+echo "✅ bmpto105_test.cpp compilation successful!"
 
 # the actual test
 ./bmpto105_test ./castle.png
