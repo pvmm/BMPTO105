@@ -176,18 +176,18 @@ class MSXBitmap_105:
         debug('Done!')
 
 
-    def to_metatiles(self, x: int, y: int, width: int = 1, height: int = 8):
+    def to_metatile(self, x: int, y: int, width: int = 1, height: int = 8, frame: int = 0):
         """Return the metatile pattern and colors at a position"""
         if y % 8 != 0 or height % 8 != 0:
             raise IndexError('y and height must be multiple of 8')
-        metatile1 = []
-        metatile2 = []
+        metatile = []
         for ty in range(y, y + height, TILE_HEIGHT):
             for xx in range(x, x + width):
                 for yy in range(ty, ty + TILE_HEIGHT):
-                    metatile1.extend([self[yy][xx].p0, self[yy][xx].c0])
-                    metatile2.extend([self[yy][xx].p1, self[yy][xx].c1])
-        return metatile1, metatile2
+                    p = self[yy][xx].p0 if frame == 0 else self[yy][xx].p1
+                    c = self[yy][xx].c0 if frame == 0 else self[yy][xx].c1
+                    metatile.extend([p, c])
+        return metatile
 
 
     def to_image(self) -> Image:
