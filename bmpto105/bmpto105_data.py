@@ -22,19 +22,21 @@ class MSXTile_105:
     p1: int
 
 
-    def to_rgb(self, x, palette: list[RGBColor]) -> tuple[int, int, int]:
+    def to_rgb(self, x: int, palette: list[RGBColor]) -> tuple[int, int, int]:
         """Return RGB pixel value equivalent to MSX 105-colour bitmap."""
         bit = 1 << ((TILE_WIDTH - 1) - (x % TILE_WIDTH))
         p0: bool = True if self.p0 & bit else False
         p1: bool = True if self.p1 & bit else False
-        fg0, bg0 = (self.c0 // 16) & 0xf, self.c0 & 0xf
-        fg1, bg1 = (self.c1 // 16) & 0xf, self.c1 & 0xf
-        return (((palette[fg0].r if p0 else palette[bg0].r) +
+        fg0, bg0 = (self.c0 >> 4) & 0xf, self.c0 & 0xf
+        fg1, bg1 = (self.c1 >> 4) & 0xf, self.c1 & 0xf
+        return (
+            ((palette[fg0].r if p0 else palette[bg0].r) +
                  (palette[fg1].r if p1 else palette[bg1].r)) // 2,
-                ((palette[fg0].g if p0 else palette[bg0].g) +
+            ((palette[fg0].g if p0 else palette[bg0].g) +
                  (palette[fg1].g if p1 else palette[bg1].g)) // 2,
-                ((palette[fg0].b if p0 else palette[bg0].b) +
-                 (palette[fg1].b if p1 else palette[bg1].b)) // 2)
+            ((palette[fg0].b if p0 else palette[bg0].b) +
+                 (palette[fg1].b if p1 else palette[bg1].b)) // 2
+        )
 
 
 class MSXRow_105:
