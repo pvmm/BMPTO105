@@ -183,10 +183,10 @@ class MSXBitmap_105:
         metatile1 = []
         metatile2 = []
         for ty in range(y, y + height, TILE_HEIGHT):
-            for x in range(x, x + width):
-                for y in range(ty, ty + TILE_HEIGHT):
-                    metatile1.extend([self[y][x].p0, self[y][x].c0])
-                    metatile2.extend([self[y][x].p1, self[y][x].c1])
+            for xx in range(x, x + width):
+                for yy in range(ty, ty + TILE_HEIGHT):
+                    metatile1.extend([self[yy][xx].p0, self[yy][xx].c0])
+                    metatile2.extend([self[yy][xx].p1, self[yy][xx].c1])
         return metatile1, metatile2
 
 
