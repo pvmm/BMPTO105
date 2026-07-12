@@ -193,7 +193,7 @@ public:
 		auto data = tuple_sequence_to_vector(dataSeq);
 
 		// Create RGBBitmap and convert
-		RGBBitmap rgbBitmap(width, height, 3, data);
+		RGBBitmap rgbBitmap(width, height, 3 /* channels */, data);
 		MSXBitmap_105* msxBitmap = convertImage(rgbBitmap);
 
 		// Convert MSX bitmap data to Python list

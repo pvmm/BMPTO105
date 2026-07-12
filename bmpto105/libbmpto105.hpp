@@ -32,6 +32,18 @@
 #include "benchmarker.cpp"
 #endif
 
+// special macros
+#ifdef _USE_DEBUG_
+#define DEBUG(x) do { x } while (0)
+#else
+#define DEBUG(x)
+#endif
+#ifdef _USE_CONSOLE_
+#define CONSOLE(x) do { x } while (0)
+#else
+#define CONSOLE(x)
+#endif
+#define CONSOLE_OFF(x)
 
 struct RGBColor
 {

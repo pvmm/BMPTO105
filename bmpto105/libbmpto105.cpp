@@ -33,19 +33,6 @@
 
 #include "libbmpto105.hpp"
 
-// special macros
-#ifdef _USE_DEBUG_
-#define DEBUG(x) do { x; } while (0)
-#else
-#define DEBUG(x)
-#endif
-#ifdef _USE_CONSOLE_
-#define CONSOLE(x) do { x; } while (0)
-#else
-#define CONSOLE(x)
-#endif
-#define CONSOLE_OFF(x)
-
 // constants and useful macros
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
@@ -249,7 +236,7 @@ MSXBitmap_105* BmpTo105::convertImage(RGBBitmap& img)
 			RGBColor* ptr = (RGBColor*) (img.ref.data() + (h * img.width + w * 8) * img.channels);
 
 			uint32_t idx = findBestMatch(ptr);
-			CONSOLE(std::cerr << "findBestMatch " << idx << "\n";);
+			CONSOLE_OFF(std::cerr << "findBestMatch " << idx << "\n";);
 
 			// select which 4-colour combination of alternating (fg | bg) is more similar to the current pixel.
 			RGBColor rgb0 = colorComboTable[idx][0].rgb;
@@ -299,8 +286,8 @@ MSXBitmap_105* BmpTo105::convertImage(RGBBitmap& img)
 
 			CONSOLE(
 				std::cerr << "data "
-					<< (int)pattern0 << "," << (int)pattern1 << ","
-					<< (int)c0 << "," << (int)c1 << "\n";
+					<< (int)c0 << "," << (int)pattern0 << ","
+					<< (int)c1 << "," << (int)pattern1 << "\n";
 			);
 		}
 	}

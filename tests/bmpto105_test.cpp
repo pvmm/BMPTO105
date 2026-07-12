@@ -33,9 +33,10 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define USE_DEBUG
-#define USE_CONSOLE
-#include "../bmpto105/libbmpto105.cpp"
+//#define USE_DEBUG
+//#define USE_CONSOLE
+
+#include "../bmpto105/libbmpto105.hpp"
 
 #define TILE_WIDTH 8
 #define NIBBLE_SIZE 4
@@ -121,7 +122,7 @@ void saveBitmap(const std::string& filename, const MSXBitmap_105* msx, const std
 	std::vector<uint8_t> data(width * height * channels);
 
 	for (int y = 0; y < height; ++y) {
-		for (int x = 0; x < msx->width; ++x) {
+		for (unsigned int x = 0; x < msx->width; ++x) {
 			for (int tx = 0; tx < 8; ++tx) {
 				uint8_t bit = 1 << ((TILE_WIDTH - 1) - tx);
 				uint8_t c0 = msx->bitmap[y * msx->width + x].c0;

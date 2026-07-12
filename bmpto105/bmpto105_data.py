@@ -107,7 +107,7 @@ class MSXBitmap_105:
     def data(self, data):
         length = self.width * self.height * TILE_ROW_WIDTH
         if len(data) != length:
-            raise ValueError(f'105-colour image data size and specified dimensions don\'t match, expected {length}, got {len(data)}')
+            raise ValueError(f'105-colour image data size and dimensions don\'t match, expected {length}, got {len(data)}')
         # stride is the size of a single line from the image
         stride = self.width * TILE_ROW_WIDTH
         self._data = [MSXRow_105(self.width, data[i : i + stride]) for i in range(0, len(data), stride)]
