@@ -4,9 +4,13 @@ OLD_CD=$PWD
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null || exit 1
 
 # activate python virtual env if not already active
-source ../.venv/bin/activate
+if [ -f "../.venv/bin/activate" ]; then
+	echo "Virtualenv detected, activating it..."
+	source ../.venv/bin/activate
+fi
 
 if [ "$1" = '--force' ]; then
+	echo "Removing old library to recompile..."
 	rm libbmpto105.so 2> /dev/null || true
 fi
 

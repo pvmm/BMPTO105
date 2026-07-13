@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # activate python virtual env if not already active
-source ../.venv/bin/activate
+if [ -f "../.venv/bin/activate" ]; then
+	echo "Virtualenv detected, activating it..."
+        source ../.venv/bin/activate
+fi
 
 source ../bmpto105/compile.sh $1
 
