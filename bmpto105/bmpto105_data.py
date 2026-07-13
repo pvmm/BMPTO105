@@ -3,6 +3,8 @@ import struct
 from dataclasses import dataclass
 from PIL import Image
 
+from bmpto105.libbmpto105 import RGBColor
+
 # constants
 TILE_WIDTH = TILE_HEIGHT = 8
 # specially made for 105-colours bitmap
