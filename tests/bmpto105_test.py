@@ -25,12 +25,13 @@
 
 import sys
 
+from pathlib import Path
+
 sys.path.append('..')
 import bmpto105
 
 from bmpto105 import BmpTo105
 
-from pathlib import Path
 
 TILE_WIDTH = TILE_HEIGHT = 8
 # specially made for 105-colours bitmap
@@ -61,12 +62,12 @@ def main():
     dst = engine.convert(src)
 
     # Print the stats of tile use
-    rep, total = dst.stats(0, 64)
-    print(f'range: {0:03d}-{64:03d}: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
-    rep, total = dst.stats(64, 128)
-    print(f'range: {64:03d}-{128:03d}: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
-    rep, total = dst.stats(128, 192)
-    print(f'range: {128:03d}-{192:03d}: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
+    rep, total = dst.stats2(0, 64, 1)
+    print(f'range: 000-064: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
+    rep, total = dst.stats2(64, 128, 1)
+    print(f'range: 064-128: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
+    rep, total = dst.stats2(128, 192, 1)
+    print(f'range: 128-192: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
 
     # Save MSX bitmap and equivalent 105-colours bitmap
     dst.save(str(path.with_suffix('.si2')))

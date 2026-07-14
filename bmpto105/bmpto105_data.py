@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from PIL import Image
 
 from bmpto105.libbmpto105 import RGBColor
+from bmpto105.bmpto105_func import tile_hash, approximate_tile_rgb
 
 # constants
 TILE_WIDTH = TILE_HEIGHT = 8
@@ -24,21 +25,34 @@ class MSXTile_105:
     p1: int
 
 
-    def to_rgb(self, x: int, palette: list[RGBColor]) -> tuple[int, int, int]:
+    def to_rgb(self, x: int, palette: list[RGBColor], frames: int = 0b11) -> tuple[int, int, int]:
         """Return RGB pixel value equivalent to MSX 105-colour bitmap."""
         bit = 1 << ((TILE_WIDTH - 1) - (x % TILE_WIDTH))
-        p0: bool = True if self.p0 & bit else False
-        p1: bool = True if self.p1 & bit else False
-        fg0, bg0 = (self.c0 >> 4) & 0xf, self.c0 & 0xf
-        fg1, bg1 = (self.c1 >> 4) & 0xf, self.c1 & 0xf
+        p0: bool
+        p1: bool
+        f0: int
+        f1: int
+        b0: int
+        b1: int
+
+        if frames & 0b01 == 0b01:
+            p0 = True if self.p0 & bit else False
+            f0, b0 = (self.c0 >> 4) & 0xf, self.c0 & 0xf
+            if frames == 1:
+                p1, f1, b1 = p0, f0, b0
+        if frames & 0b10 == 0b10:
+            p1 = True if self.p1 & bit else False
+            f1, b1 = (self.c1 >> 4) & 0xf, self.c1 & 0xf
+            if frames == 2:
+                p0, f0, b0 = p1, f1, b1
         return (
-            ((palette[fg0].r if p0 else palette[bg0].r) +
-                 (palette[fg1].r if p1 else palette[bg1].r)) // 2,
-            ((palette[fg0].g if p0 else palette[bg0].g) +
-                 (palette[fg1].g if p1 else palette[bg1].g)) // 2,
-            ((palette[fg0].b if p0 else palette[bg0].b) +
-                 (palette[fg1].b if p1 else palette[bg1].b)) // 2
-        )
+                ((palette[f0].r if p0 else palette[b0].r) +
+                     (palette[f1].r if p1 else palette[b1].r)) // 2,
+                ((palette[f0].g if p0 else palette[b0].g) +
+                     (palette[f1].g if p1 else palette[b1].g)) // 2,
+                ((palette[f0].b if p0 else palette[b0].b) +
+                     (palette[f1].b if p1 else palette[b1].b)) // 2
+            )
 
 
 class MSXRow_105:
@@ -119,7 +133,7 @@ class MSXBitmap_105:
         return self.data[y]
 
 
-    def stats(self, begin: int = 0, end: int | None = None) -> tuple[int, int]:
+    def stats1(self, begin: int = 0, end: int | None = None) -> tuple[int, int]:
         """Count how many tiles repeat and the total amount"""
         stg = {}
         rep = 0
@@ -143,6 +157,30 @@ class MSXBitmap_105:
                     rep += 1
                 else:
                     stg[key] = True
+        # return (number of repetitions, number of used tiles) for the begin..end interval
+        return rep, len(stg)
+
+
+    def stats2(self, begin: int = 0, end: int | None = None, rank: int = 8) -> tuple[int, int]:
+        if end is None: end = self.height
+        stg = {}
+        rep = 0
+        dst1 = self.to_image(0b01).crop((0, begin, self.width * TILE_WIDTH, end))
+        dst2 = self.to_image(0b10).crop((0, begin, self.width * TILE_WIDTH, end))
+        for y in range(0, end - begin, TILE_HEIGHT):
+            for x in range(0, self.width * TILE_WIDTH, TILE_WIDTH):
+                tile = dst1.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
+                approx = tile_hash(approximate_tile_rgb(tile, rank))
+                if approx in stg:
+                    rep += 1
+                else:
+                    stg[approx] = True
+                tile = dst2.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
+                approx = tile_hash(approximate_tile_rgb(tile, rank))
+                if approx in stg:
+                    rep += 1
+                else:
+                    stg[approx] = True
         # return (number of repetitions, number of used tiles) for the begin..end interval
         return rep, len(stg)
 
@@ -194,14 +232,14 @@ class MSXBitmap_105:
         return metatile
 
 
-    def to_image(self) -> Image:
+    def to_image(self, frames: int = 0b11) -> Image:
         """convert MSXBitmap_105 to PIL Image"""
         dst = Image.new('RGB', (self.width * TILE_WIDTH, self.height))
         width, height = dst.size
         for y in range(height):
             for x in range(self.width):
                 for tx in range(TILE_WIDTH):
-                    pixel = self[y][x].to_rgb(tx, self.palette)
+                    pixel = self[y][x].to_rgb(tx, self.palette, frames)
                     dst.putpixel((x * TILE_WIDTH + tx, y), pixel)
         return dst
 
