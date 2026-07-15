@@ -134,35 +134,7 @@ class MSXBitmap_105:
         return self.data[y]
 
 
-    def stats1(self, begin: int = 0, end: int | None = None) -> tuple[int, int]:
-        """Count how many tiles repeat and the total amount"""
-        stg = {}
-        rep = 0
-        image = self
-        if end is None: end = self.height
-        for y in range(begin, end, TILE_HEIGHT):
-            s = slice(y, y + TILE_HEIGHT) # get the tile content from height to height + 8
-            for x in range(0, image.width):
-                pat = ''.join([f'{pixel.p0:02x}' for pixel in [row[x] for row in image[s]]])
-                col = ''.join([f'{pixel.c0:02x}' for pixel in [row[x] for row in image[s]]])
-                key = f'{pat}:{col}'
-                if key in stg:
-                    rep += 1
-                else:
-                    stg[key] = True
-
-                pat = ''.join([f'{pixel.p1:02x}' for pixel in [row[x] for row in image[s]]])
-                col = ''.join([f'{pixel.c1:02x}' for pixel in [row[x] for row in image[s]]])
-                key = f'{pat}:{col}'
-                if key in stg:
-                    rep += 1
-                else:
-                    stg[key] = True
-        # return (number of repetitions, number of used tiles) for the begin..end interval
-        return rep, len(stg)
-
-
-    def stats2(self, begin: int = 0, end: int | None = None, threshold: float = 0.1) -> tuple[int, int]:
+    def stats(self, begin: int = 0, end: int | None = None, threshold: float = 0.1) -> tuple[int, int]:
         if end is None: end = self.height
         p = DCT(threshold)
         stg = {}
