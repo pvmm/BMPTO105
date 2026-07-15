@@ -1,6 +1,8 @@
 import numpy as np
 import hashlib
 
+from scipy.fftpack import dct, idct
+from typing import List, Tuple
 from PIL import Image
 
 
@@ -56,7 +58,7 @@ def approximate_tile_rgb(tile, rank = 8):
 
 
 def tile_hash(tile):
-    return hashlib.md5(tile.tobytes()).hexdigest()
+    return hashlib.md5(tile).hexdigest()
 
 
 def remove_similar_tiles(tiles, rank):

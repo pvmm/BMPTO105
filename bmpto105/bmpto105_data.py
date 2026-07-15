@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from PIL import Image
 
 from bmpto105.libbmpto105 import RGBColor
-from bmpto105.bmpto105_func import tile_hash, approximate_tile_rgb
+from bmpto105.bmpto105_func import tile_hash
+from bmpto105.dct import DCT
 
 # constants
 TILE_WIDTH = TILE_HEIGHT = 8
@@ -161,8 +162,9 @@ class MSXBitmap_105:
         return rep, len(stg)
 
 
-    def stats2(self, begin: int = 0, end: int | None = None, rank: int = 8) -> tuple[int, int]:
+    def stats2(self, begin: int = 0, end: int | None = None, threshold: float = 0.1) -> tuple[int, int]:
         if end is None: end = self.height
+        p = DCT(threshold)
         stg = {}
         rep = 0
         dst1 = self.to_image(0b01).crop((0, begin, self.width * TILE_WIDTH, end))
@@ -170,13 +172,15 @@ class MSXBitmap_105:
         for y in range(0, end - begin, TILE_HEIGHT):
             for x in range(0, self.width * TILE_WIDTH, TILE_WIDTH):
                 tile = dst1.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
-                approx = tile_hash(approximate_tile_rgb(tile, rank))
+                bytes_ = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
+                approx = tile_hash(p.approximate_tile(bytes_))
                 if approx in stg:
                     rep += 1
                 else:
                     stg[approx] = True
                 tile = dst2.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
-                approx = tile_hash(approximate_tile_rgb(tile, rank))
+                bytes_ = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
+                approx = tile_hash(p.approximate_tile(bytes_))
                 if approx in stg:
                     rep += 1
                 else:

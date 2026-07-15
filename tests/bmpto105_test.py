@@ -50,7 +50,7 @@ def main():
     palette = MSX1_PALETTE
 
     if len(sys.argv) < 2:
-        sys.exit(f'usage: {sys.argv[0]} <image file>')
+        sys.exit(f'usage: {sys.argv[0]} <image file> <threshold: 0.0 .. 1.0>')
 
     path = Path(sys.argv[1])
     src = bmpto105.open_bitmap(str(path))
@@ -61,12 +61,16 @@ def main():
     # Convert png image to 105 mode
     dst = engine.convert(src)
 
+    # the bigger the threshold, the greater the lossy compression
+    threshold = float(sys.argv[2]) if len(sys.argv) > 2 else 0.0
+    print(f'threshold: {threshold}')
+
     # Print the stats of tile use
-    rep, total = dst.stats2(0, 64, 1)
+    rep, total = dst.stats2(0, 64, threshold)
     print(f'range: 000-064: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
-    rep, total = dst.stats2(64, 128, 1)
+    rep, total = dst.stats2(64, 128, threshold)
     print(f'range: 064-128: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
-    rep, total = dst.stats2(128, 192, 1)
+    rep, total = dst.stats2(128, 192, threshold)
     print(f'range: 128-192: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
 
     # Save MSX bitmap and equivalent 105-colours bitmap
