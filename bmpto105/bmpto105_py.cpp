@@ -211,13 +211,20 @@ public:
 
 		// Get Python MSXBitmap_105 class
 		py::module_ data_module = py::module_::import("bmpto105_data");
-		py::object MSXBitmap_class = data_module.attr("MSXBitmap_105");
+
+		// Create Python palette
+		py::object palette_class = data_module.attr("RGBColor");
+		py::list pylette;
+		for (const RGBColor& c: palette) {
+			pylette.append(palette_class(c.r, c.g, c.b));
+		}
 
 		// Create Python object with data
+		py::object MSXBitmap_class = data_module.attr("MSXBitmap_105");
 		py::object result = MSXBitmap_class(
 			msxBitmap->width,
 			height,
-			palette,
+			pylette,
 			bitmap
 		);
 
@@ -234,13 +241,6 @@ PYBIND11_MODULE(libbmpto105, m) {
 	sys.attr("path").attr("append")(lib_dir.string());
 
 	m.doc() = "Convert any bitmap format to 105 colors mode (MSX)";
-
-	// Bind RGBColor
-	py::class_<RGBColor>(m, "RGBColor")
-		.def_readonly("r", &RGBColor::r)
-		.def_readonly("g", &RGBColor::g)
-		.def_readonly("b", &RGBColor::b)
-	        .def("rgb", &RGBColor::rgb);
 
 	// Bind RGBBitmap
 	py::class_<RGBBitmap>(m, "_RGBBitmap")

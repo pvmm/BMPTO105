@@ -3,7 +3,6 @@ import struct
 from dataclasses import dataclass
 from PIL import Image
 
-from bmpto105.libbmpto105 import RGBColor
 from bmpto105.bmpto105_func import tile_hash
 from bmpto105.dct import DCT
 
@@ -17,6 +16,13 @@ debug = print
 #
 # Python-side classes
 #
+
+@dataclass
+class RGBColor:
+    r: int
+    g: int
+    b: int
+
 
 @dataclass
 class MSXTile_105:
