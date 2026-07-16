@@ -1,10 +1,11 @@
 import numpy as np
 
+from typing import Any
 from scipy.fftpack import dct, idct
 
 
 class DCT:
-    def __init__(self, threshold: float = 0.1, keep_coeffs: int | None = None):
+    def __init__(self, threshold: float = 0.1, keep_coeffs: int | None = None) -> None:
         '''
         Processes tiles using DCT
 
@@ -15,7 +16,7 @@ class DCT:
         self.threshold = threshold
         self.keep_coeffs = keep_coeffs
 
-    def dct2(self, block: np.ndarray) -> np.ndarray:
+    def dct2(self, block: np.ndarray) -> Any: #np.ndarray[tuple[Any, ...], np.dtype[Any]]:
         '''applies 2D DCT'''
         return dct(dct(block.T, norm='ortho').T, norm='ortho')
 
@@ -25,7 +26,7 @@ class DCT:
 
     def approximate_tile(self, tile: bytes) -> bytes:
         '''applies truncated DCT for approximation'''
-        # Converte para matriz
+        # conver to matrix
         matrix = np.frombuffer(tile, dtype=np.uint8).reshape(8, 8, 3)
         approximated = np.zeros_like(matrix, dtype=np.float32)
 
@@ -33,37 +34,37 @@ class DCT:
             # Extrai canal
             channel_data = matrix[:, :, channel].astype(np.float32)
 
-            # Aplica DCT
+            # applies DCT
             dct_coeffs = self.dct2(channel_data)
 
-            # Cria máscara para coeficientes a manter
+            # create a mask for maintaining coefficients
             mask = np.ones_like(dct_coeffs)
 
             if self.keep_coeffs is not None:
-                # Mantém os K maiores coeficientes em valor absoluto
+                # maintain the biggest K coefficients in absolute values
                 flat_coeffs = np.abs(dct_coeffs.flatten())
                 indices = np.argsort(flat_coeffs)[-self.keep_coeffs:]
                 mask = np.zeros_like(dct_coeffs)
                 mask.flat[indices] = 1
             else:
-                # Usa threshold baseado na energia total
+                # use threshold based on total energy
                 total_energy = np.sum(dct_coeffs ** 2)
                 if total_energy > 0:
-                    # Ordena coeficientes por energia
+                    # order coefficients by energy
                     sorted_coeffs = np.sort(np.abs(dct_coeffs.flatten()))[::-1]
                     cumsum = np.cumsum(sorted_coeffs ** 2) / total_energy
                     k = np.searchsorted(cumsum, 1.0 - self.threshold) + 1
 
-                    # Mantém os K maiores
+                    # maintain K-biggest
                     flat_coeffs = np.abs(dct_coeffs.flatten())
                     indices = np.argsort(flat_coeffs)[-k:]
                     mask = np.zeros_like(dct_coeffs)
                     mask.flat[indices] = 1
 
-            # Aplica máscara
+            # apply mask
             dct_coeffs_trunc = dct_coeffs * mask
 
-            # DCT inverso
+            # inverse DCT
             approximated_channel = self.idct2(dct_coeffs_trunc)
             approximated[:, :, channel] = approximated_channel
 

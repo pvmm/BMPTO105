@@ -4,11 +4,11 @@ import hashlib
 import os
 import argparse
 from collections import defaultdict
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional, Any, Union
 import struct
 
 class TileProcessor:
-    def __init__(self, threshold: float = 0.1):
+    def __init__(self, threshold: float = 0.1) -> None:
         """
         Inicializa o processador de tiles
         
@@ -16,14 +16,14 @@ class TileProcessor:
             threshold: Limiar para truncamento dos valores singulares (0-1)
                       Quanto maior, mais agressiva a compressão
         """
-        self.threshold = threshold
+        self.threshold: float = threshold
         
     def tile_to_matrix(self, tile: bytes) -> np.ndarray:
         """
         Converte um tile (64 bytes RGB) em uma matriz 8x8x3
         """
         # Converte bytes para array de uint8
-        pixels = np.frombuffer(tile, dtype=np.uint8)
+        pixels: np.ndarray = np.frombuffer(tile, dtype=np.uint8)
         # Reshape para 8x8x3
         return pixels.reshape(8, 8, 3)
     
@@ -41,35 +41,41 @@ class TileProcessor:
         Aplica aproximação de baixo rank usando SVD truncado
         """
         # Converte tile para matriz
-        matrix = self.tile_to_matrix(tile)
+        matrix: np.ndarray = self.tile_to_matrix(tile)
         
         # Processa cada canal RGB separadamente
-        approximated = np.zeros_like(matrix, dtype=np.float32)
+        approximated: np.ndarray = np.zeros_like(matrix, dtype=np.float32)
         
         for channel in range(3):
             # Extrai o canal
-            channel_matrix = matrix[:, :, channel].astype(np.float32)
+            channel_matrix: np.ndarray = matrix[:, :, channel].astype(np.float32)
             
             # Aplica SVD
+            U: np.ndarray
+            s: np.ndarray
+            Vt: np.ndarray
             U, s, Vt = np.linalg.svd(channel_matrix, full_matrices=False)
             
             # Calcula número de valores singulares a manter baseado no threshold
-            s_total = np.sum(s)
+            s_total: np.float64 = np.sum(s)
             if s_total > 0:
                 # Encontra quantos valores singulares são necessários para manter
                 # a proporção especificada da energia total
-                s_cumsum = np.cumsum(s) / s_total
-                k = np.searchsorted(s_cumsum, 1.0 - self.threshold) + 1
+                s_cumsum: np.ndarray = np.cumsum(s) / s_total
+                k: Union[int, np.integer] = np.searchsorted(s_cumsum, 1.0 - self.threshold) + 1
                 k = max(1, min(k, len(s)))  # Mantém pelo menos 1 e no máximo todos
             else:
                 k = 1
             
+            # Converte k para int se for np.integer
+            k_int: int = int(k) if isinstance(k, (int, np.integer)) else k
+            
             # Trunca os valores singulares
-            s_truncated = np.zeros_like(s)
-            s_truncated[:k] = s[:k]
+            s_truncated: np.ndarray = np.zeros_like(s)
+            s_truncated[:k_int] = s[:k_int]
             
             # Reconstrói a matriz com rank reduzido
-            approximated_channel = U @ np.diag(s_truncated) @ Vt
+            approximated_channel: np.ndarray = U @ np.diag(s_truncated) @ Vt
             
             # Armazena o canal aproximado
             approximated[:, :, channel] = approximated_channel
@@ -94,15 +100,15 @@ class TileProcessor:
             Dicionário com hash -> contagem de tiles únicos
         """
         # Dicionário para armazenar tiles únicos
-        unique_tiles = {}
-        tile_counts = defaultdict(int)
+        unique_tiles: Dict[str, bytes] = {}
+        tile_counts: Dict[str, int] = defaultdict(int)
         
         for i, tile in enumerate(tiles):
             # Aplica aproximação
-            approximated_tile = self.approximate_tile(tile)
+            approximated_tile: bytes = self.approximate_tile(tile)
             
             # Calcula hash do tile aproximado
-            tile_hash = self.compute_tile_hash(approximated_tile)
+            tile_hash: str = self.compute_tile_hash(approximated_tile)
             
             # Armazena o tile original e sua contagem
             if tile_hash not in unique_tiles:
@@ -111,7 +117,7 @@ class TileProcessor:
         
         return dict(tile_counts)
     
-    def save_unique_tiles(self, unique_tiles: Dict[str, bytes], output_dir: str):
+    def save_unique_tiles(self, unique_tiles: Dict[str, bytes], output_dir: str) -> None:
         """
         Salva os tiles únicos como imagens individuais
         """
@@ -119,12 +125,13 @@ class TileProcessor:
         
         for i, (hash_val, tile_data) in enumerate(unique_tiles.items()):
             # Converte bytes para imagem 8x8
-            pixels = np.frombuffer(tile_data, dtype=np.uint8).reshape(8, 8, 3)
-            img = Image.fromarray(pixels, 'RGB')
-            img = img.resize((64, 64), Image.NEAREST)  # Amplia para visualização
+            pixels: np.ndarray = np.frombuffer(tile_data, dtype=np.uint8).reshape(8, 8, 3)
+            img: Image.Image = Image.fromarray(pixels, 'RGB')
+            # Usando Image.Resampling.NEAREST ou NEAREST como método
+            img = img.resize((64, 64), Image.Resampling.NEAREST)  # Amplia para visualização
             
             # Salva imagem
-            filename = f"tile_{i:04d}_{hash_val[:8]}.png"
+            filename: str = f"tile_{i:04d}_{hash_val[:8]}.png"
             img.save(os.path.join(output_dir, filename))
 
 
@@ -134,26 +141,28 @@ class ImageTileExtractor:
         """
         Extrai tiles de uma imagem
         """
-        img = Image.open(image_path)
+        img: Image.Image = Image.open(image_path)
         img = img.convert('RGB').crop((0, 64, 256, 128))
+        width: int
+        height: int
         width, height = img.size
         
-        tiles = []
-        pixels = np.array(img)
+        tiles: List[bytes] = []
+        pixels: np.ndarray = np.array(img)
         
         for y in range(0, height, tile_size):
             for x in range(0, width, tile_size):
                 if y + tile_size <= height and x + tile_size <= width:
-                    tile = pixels[y:y+tile_size, x:x+tile_size, :]
+                    tile: np.ndarray = pixels[y:y+tile_size, x:x+tile_size, :]
                     # Converte para bytes
-                    tile_bytes = tile.astype(np.uint8).tobytes()
+                    tile_bytes: bytes = tile.astype(np.uint8).tobytes()
                     tiles.append(tile_bytes)
         
         return tiles
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Remove tiles semelhantes usando SVD')
+def main() -> None:
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(description='Remove tiles semelhantes usando SVD')
     parser.add_argument('image1', help='Caminho para a imagem de entrada 1')
     parser.add_argument('image2', help='Caminho para a imagem de entrada 2')
     parser.add_argument('--threshold', type=float, default=0.1,
@@ -163,28 +172,28 @@ def main():
     parser.add_argument('--tile-size', type=int, default=8,
                        help='Tamanho do tile (padrão: 8)')
     
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
     
     # Extrai tiles da imagem
-    extractor = ImageTileExtractor()
+    extractor: ImageTileExtractor = ImageTileExtractor()
     print(f"Extraindo tiles da imagem '{args.image1}'...")
-    tiles = extractor.extract_tiles_from_image(args.image1, args.tile_size)
+    tiles: List[bytes] = extractor.extract_tiles_from_image(args.image1, args.tile_size)
     print(f"Extraindo tiles da imagem '{args.image2}'...")
     tiles += extractor.extract_tiles_from_image(args.image2, args.tile_size)
 
     print(f"Total de tiles extraídos: {len(tiles)}")
     
     # Processa tiles
-    processor = TileProcessor(threshold=args.threshold)
+    processor: TileProcessor = TileProcessor(threshold=args.threshold)
     print(f"Processando tiles com threshold={args.threshold}...")
-    unique_tile_counts = processor.process_tile_list(tiles)
+    unique_tile_counts: Dict[str, int] = processor.process_tile_list(tiles)
     
     print(f"Tiles únicos encontrados: {len(unique_tile_counts)}")
     print(f"Redução: {len(tiles) - len(unique_tile_counts)} tiles removidos")
     
     # Mostra estatísticas
     print("\nEstatísticas de frequência dos tiles:")
-    sorted_counts = sorted(unique_tile_counts.items(), key=lambda x: -x[1])
+    sorted_counts: List[Tuple[str, int]] = sorted(unique_tile_counts.items(), key=lambda x: -x[1])
     for i, (hash_val, count) in enumerate(sorted_counts[:10]):
         print(f"  Tile {i+1}: {count} ocorrências (hash: {hash_val[:8]}...)")
     
@@ -195,12 +204,12 @@ def main():
     print(f"\nSalvando tiles únicos em '{args.output}'...")
     
     # Reprocessa para obter os tiles únicos
-    unique_tiles_dict = {}
-    tile_counts = defaultdict(int)
+    unique_tiles_dict: Dict[str, bytes] = {}
+    tile_counts: Dict[str, int] = defaultdict(int)
     
     for tile in tiles:
-        approximated_tile = processor.approximate_tile(tile)
-        tile_hash = processor.compute_tile_hash(approximated_tile)
+        approximated_tile: bytes = processor.approximate_tile(tile)
+        tile_hash: str = processor.compute_tile_hash(approximated_tile)
         if tile_hash not in unique_tiles_dict:
             unique_tiles_dict[tile_hash] = tile  # Guarda o tile original
         tile_counts[tile_hash] += 1
@@ -210,7 +219,7 @@ def main():
 
 
 # Exemplo de uso programático
-def example_usage():
+def example_usage() -> None:
     """
     Exemplo de como usar a classe TileProcessor programaticamente
     """
@@ -218,19 +227,19 @@ def example_usage():
     import random
     
     # Cria 10 tiles aleatórios
-    tiles = []
+    tiles: List[bytes] = []
     for _ in range(10):
         # Cria um tile 8x8 com valores RGB aleatórios
-        tile_data = bytes([random.randint(0, 255) for _ in range(8 * 8 * 3)])
+        tile_data: bytes = bytes([random.randint(0, 255) for _ in range(8 * 8 * 3)])
         tiles.append(tile_data)
     
     # Adiciona algumas variações do mesmo tile
-    base_tile = tiles[0]
+    base_tile: bytes = tiles[0]
     for i in range(3):
         # Cria uma cópia com pequenas variações
-        variation = bytearray(base_tile)
+        variation: bytearray = bytearray(base_tile)
         for j in range(10):  # Muda alguns pixels
-            pos = random.randint(0, len(variation)-1)
+            pos: int = random.randint(0, len(variation)-1)
             variation[pos] = (variation[pos] + random.randint(-10, 10)) % 256
         tiles.append(bytes(variation))
     
@@ -238,16 +247,16 @@ def example_usage():
     
     # Processa com diferentes thresholds
     for threshold in [0.0, 0.1, 0.3, 0.5]:
-        processor = TileProcessor(threshold=threshold)
-        unique_counts = processor.process_tile_list(tiles)
+        processor: TileProcessor = TileProcessor(threshold=threshold)
+        unique_counts: Dict[str, int] = processor.process_tile_list(tiles)
         print(f"Threshold {threshold:.1f}: {len(unique_counts)} tiles únicos")
     
     # Salva os tiles únicos
     processor = TileProcessor(threshold=0.1)
-    unique_tiles_dict = {}
+    unique_tiles_dict: Dict[str, bytes] = {}
     for tile in tiles:
-        approximated_tile = processor.approximate_tile(tile)
-        tile_hash = processor.compute_tile_hash(approximated_tile)
+        approximated_tile: bytes = processor.approximate_tile(tile)
+        tile_hash: str = processor.compute_tile_hash(approximated_tile)
         if tile_hash not in unique_tiles_dict:
             unique_tiles_dict[tile_hash] = tile
     
