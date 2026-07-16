@@ -1,5 +1,5 @@
 import struct
-from typing import Optional, Dict, Any, Union, cast
+from typing import Optional, Any, Union, cast, Iterator, Sequence
 
 from dataclasses import dataclass
 from PIL import Image
@@ -90,6 +90,14 @@ class MSXRow_105:
     def __getitem__(self, x: int) -> MSXTile_105:
         return self.data[x]
 
+    def __iter__(self) -> Iterator[MSXTile_105]:
+        """Make MSXRow_105 iterable"""
+        return iter(self.data)
+
+    def __len__(self) -> int:
+        """Return the number of tiles in the row"""
+        return len(self.data)
+
 
 class MSXBitmap_105:
     width: int
@@ -130,14 +138,25 @@ class MSXBitmap_105:
         stride: int = self.width * TILE_ROW_WIDTH
         self._data = [MSXRow_105(self.width, data[i: i + stride]) for i in range(0, len(data), stride)]
 
-    def __getitem__(self, y: int) -> MSXRow_105:
-        return self.data[y]
+    def __getitem__(self, key: Union[int, slice]) -> Union[MSXRow_105, list[MSXRow_105]]:
+        """Support both integer and slice indexing"""
+        if isinstance(key, slice):
+            return self.data[key]
+        return self.data[key]
+
+    def __iter__(self) -> Iterator[MSXRow_105]:
+        """Make MSXBitmap_105 iterable"""
+        return iter(self.data)
+
+    def __len__(self) -> int:
+        """Return the number of rows in the bitmap"""
+        return len(self.data)
 
     def stats(self, begin: int = 0, end: Optional[int] = None, threshold: float = 0.1) -> tuple[int, int]:
         if end is None:
             end = self.height
         p: DCT = DCT(threshold)
-        stg: Dict[str, bool] = {}
+        stg: dict[str, bool] = {}
         rep: int = 0
         dst1: Image.Image = self.to_image(0b01).crop((0, begin, self.width * TILE_WIDTH, end))
         dst2: Image.Image = self.to_image(0b10).crop((0, begin, self.width * TILE_WIDTH, end))
@@ -166,30 +185,31 @@ class MSXBitmap_105:
         with open(filename, 'wb') as file:
             # dimensions header
             file.write(struct.pack('BB', self.width, self.height // 8))
+            rows: list[MSXRow_105]
 
             # Save patterns for even image
             for y in range(0, self.height, TILE_HEIGHT):
-                s: slice = slice(y, y + TILE_HEIGHT)  # get the tile content from height to height + 8
+                rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
                 for x in range(0, self.width):
-                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p0 for pixel in [row[x] for row in self[s]]]))
+                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p0 for pixel in [row[x] for row in rows]]))
 
             # Save colours for even image
             for y in range(0, self.height, TILE_HEIGHT):
-                s = slice(y, y + TILE_HEIGHT)
+                rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
                 for x in range(0, self.width):
-                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c0 for pixel in [row[x] for row in self[s]]]))
+                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c0 for pixel in [row[x] for row in rows]]))
 
             # Save patterns for odd image
             for y in range(0, self.height, TILE_HEIGHT):
-                s = slice(y, y + TILE_HEIGHT)
+                rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
                 for x in range(0, self.width):
-                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p1 for pixel in [row[x] for row in self[s]]]))
+                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p1 for pixel in [row[x] for row in rows]]))
 
             # Save colours for even image
             for y in range(0, self.height, TILE_HEIGHT):
-                s = slice(y, y + TILE_HEIGHT)
+                rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
                 for x in range(0, self.width):
-                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c1 for pixel in [row[x] for row in self[s]]]))
+                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c1 for pixel in [row[x] for row in rows]]))
         debug('Done!')
 
     def to_metatile(self, x: int, y: int, width: int = 1, height: int = 8, frame: int = 0) -> list[int]:
@@ -200,8 +220,9 @@ class MSXBitmap_105:
         for ty in range(y, y + height, TILE_HEIGHT):
             for xx in range(x, x + width):
                 for yy in range(ty, ty + TILE_HEIGHT):
-                    p: int = self[yy][xx].p0 if frame == 0 else self[yy][xx].p1
-                    c: int = self[yy][xx].c0 if frame == 0 else self[yy][xx].c1
+                    tile: MSXTile_105 = cast(MSXTile_105, self[yy][xx])
+                    p: int = tile.p0 if frame == 0 else tile.p1
+                    c: int = tile.c0 if frame == 0 else tile.c1
                     metatile.extend([p, c])
         return metatile
 
@@ -214,7 +235,8 @@ class MSXBitmap_105:
         for y in range(height):
             for x in range(self.width):
                 for tx in range(TILE_WIDTH):
-                    pixel: tuple[int, int, int] = self[y][x].to_rgb(tx, self.palette, frames)
+                    tile: MSXTile_105 = cast(MSXTile_105, self[y][x])
+                    pixel: tuple[int, int, int] = tile.to_rgb(tx, self.palette, frames)
                     dst.putpixel((x * TILE_WIDTH + tx, y), pixel)
         return dst
 
