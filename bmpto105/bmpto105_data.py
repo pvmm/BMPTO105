@@ -27,7 +27,8 @@ class RGBColor:
 
 
 @dataclass
-class MSXTile_105:
+class MSXUnit_105:
+    '''1x8 block unit from a tile'''
     c0: int
     p0: int
     c1: int
@@ -64,8 +65,9 @@ class MSXTile_105:
 
 
 class MSXRow_105:
+    '''screen line from 0 to 255'''
     width: int
-    _data: list[MSXTile_105]
+    _data: list[MSXUnit_105]
 
     def __init__(self, width: int, data: Optional[list[int]] = None) -> None:
         """width: number of tiles horizontally"""
@@ -78,19 +80,19 @@ class MSXRow_105:
             self.data = data
 
     @property
-    def data(self) -> list[MSXTile_105]:
+    def data(self) -> list[MSXUnit_105]:
         return self._data
 
     @data.setter
     def data(self, data: list[int]) -> None:
         if len(data) % TILE_ROW_WIDTH != 0:
             raise ValueError(f'105-colour image data is not a multiple of {TILE_ROW_WIDTH}')
-        self._data = [MSXTile_105(*data[i: i + TILE_ROW_WIDTH]) for i in range(0, len(data), TILE_ROW_WIDTH)]
+        self._data = [MSXUnit_105(*data[i: i + TILE_ROW_WIDTH]) for i in range(0, len(data), TILE_ROW_WIDTH)]
 
-    def __getitem__(self, x: int) -> MSXTile_105:
+    def __getitem__(self, x: int) -> MSXUnit_105:
         return self.data[x]
 
-    def __iter__(self) -> Iterator[MSXTile_105]:
+    def __iter__(self) -> Iterator[MSXUnit_105]:
         """Make MSXRow_105 iterable"""
         return iter(self.data)
 
@@ -212,18 +214,17 @@ class MSXBitmap_105:
                     file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c1 for pixel in [row[x] for row in rows]]))
         debug('Done!')
 
-    def to_metatile(self, x: int, y: int, width: int = 1, height: int = 8, frame: int = 0) -> list[int]:
-        """Return the metatile pattern and colors at a position"""
-        if y % 8 != 0 or height % 8 != 0:
+    def to_metatile(self, x0: int, y0: int, width: int = 1, height: int = 8, frame: int = 1) -> list[int]:
+        """Return the metatile pattern and colors at a position withou combining frames (just frame 1 or 2)"""
+        if y0 % 8 != 0 or height % 8 != 0:
             raise IndexError('y and height must be multiple of 8')
         metatile: list[int] = []
-        for ty in range(y, y + height, TILE_HEIGHT):
-            for xx in range(x, x + width):
-                for yy in range(ty, ty + TILE_HEIGHT):
-                    tile: MSXTile_105 = cast(MSXTile_105, self[yy][xx])
-                    p: int = tile.p0 if frame == 0 else tile.p1
-                    c: int = tile.c0 if frame == 0 else tile.c1
-                    metatile.extend([p, c])
+        for y in range(y0, y0 + height):
+            for x in range(x0, x0 + width):
+                tile: MSXUnit_105 = cast(MSXUnit_105, self[y][x])
+                p: int = [tile.p0, tile.p1][frame - 1]
+                c: int = [tile.c0, tile.c1][frame - 1]
+                metatile.extend([p, c])
         return metatile
 
     def to_image(self, frames: int = 0b11) -> Image.Image:
@@ -235,7 +236,7 @@ class MSXBitmap_105:
         for y in range(height):
             for x in range(self.width):
                 for tx in range(TILE_WIDTH):
-                    tile: MSXTile_105 = cast(MSXTile_105, self[y][x])
+                    tile: MSXUnit_105 = cast(MSXUnit_105, self[y][x])
                     pixel: tuple[int, int, int] = tile.to_rgb(tx, self.palette, frames)
                     dst.putpixel((x * TILE_WIDTH + tx, y), pixel)
         return dst
