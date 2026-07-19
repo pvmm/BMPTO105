@@ -64,6 +64,28 @@ class MSXUnit_105:
         )
 
 
+    def from_rgb(self, x: int, b: bool, fg: int | None = None, bg: int | None = None, frames: int = 0b11) -> None:
+        bit: int = 1 << ((TILE_WIDTH - 1) - (x % TILE_WIDTH))
+        if frames & 0b01 == 0b01:
+            if b:
+                self.p0 |= bit
+            else:
+                self.p0 &= ~bit
+            if not fg is None:
+                self.c0 = (self.c0 & 0x0f) | (fg << 4)
+            if not bg is None:
+                self.c0 = (self.c0 & 0xf0) | bg
+        if frames & 0b10 == 0b10:
+            if b:
+                self.p1 |= bit
+            else:
+                self.p1 &= ~bit
+            if not fg is None:
+                self.c1 = (self.c1 & 0x0f) | (fg << 4)
+            if not bg is None:
+                self.c1 = (self.c1 & 0xf0) | bg
+
+
 class MSXRow_105:
     '''screen line from 0 to 255'''
     width: int
