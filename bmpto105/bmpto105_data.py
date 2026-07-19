@@ -203,38 +203,42 @@ class MSXBitmap_105:
         # return (number of repetitions, number of used tiles) for the begin..end interval
         return rep, len(stg)
 
-    def save(self, filename: str) -> None:
-        """Save MSXBitmap_105 to disk"""
+    def save_to_file(self, filename: str) -> None:
         debug(f'Saving "{filename}"... ', end='')
         with open(filename, 'wb') as file:
-            # dimensions header
-            file.write(struct.pack('BB', self.width, self.height // 8))
-            rows: list[MSXRow_105]
-
-            # Save patterns for even image
-            for y in range(0, self.height, TILE_HEIGHT):
-                rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
-                for x in range(0, self.width):
-                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p0 for pixel in [row[x] for row in rows]]))
-
-            # Save colours for even image
-            for y in range(0, self.height, TILE_HEIGHT):
-                rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
-                for x in range(0, self.width):
-                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c0 for pixel in [row[x] for row in rows]]))
-
-            # Save patterns for odd image
-            for y in range(0, self.height, TILE_HEIGHT):
-                rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
-                for x in range(0, self.width):
-                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p1 for pixel in [row[x] for row in rows]]))
-
-            # Save colours for even image
-            for y in range(0, self.height, TILE_HEIGHT):
-                rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
-                for x in range(0, self.width):
-                    file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c1 for pixel in [row[x] for row in rows]]))
+            self.save(file)
         debug('Done!')
+
+    def save(self, file: typing.BinaryIO) -> typing.BinaryIO:
+        # dimensions header
+        file.write(struct.pack('BB', self.width, self.height // 8))
+        rows: list[MSXRow_105]
+
+        # Save patterns for even image
+        for y in range(0, self.height, TILE_HEIGHT):
+            rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
+            for x in range(0, self.width):
+                file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p0 for pixel in [row[x] for row in rows]]))
+
+        # Save colours for even image
+        for y in range(0, self.height, TILE_HEIGHT):
+            rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
+            for x in range(0, self.width):
+                file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c0 for pixel in [row[x] for row in rows]]))
+
+        # Save patterns for odd image
+        for y in range(0, self.height, TILE_HEIGHT):
+            rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
+            for x in range(0, self.width):
+                file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p1 for pixel in [row[x] for row in rows]]))
+
+        # Save colours for even image
+        for y in range(0, self.height, TILE_HEIGHT):
+            rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
+            for x in range(0, self.width):
+                file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c1 for pixel in [row[x] for row in rows]]))
+
+        return file
 
     def to_metatile(self, x0: int, y0: int, width: int = 1, height: int = 8, frame: int = 1) -> list[int]:
         """Return the metatile pattern and colors at a position withou combining frames (just frame 1 or 2)"""
