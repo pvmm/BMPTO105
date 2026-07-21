@@ -179,8 +179,9 @@ class MSXBitmap_105:
     def stats(self, begin: int = 0, end: Optional[int] = None, threshold: float = 0.1) -> tuple[int, int]:
         if end is None:
             end = self.height
+        tiles: dict[str, list[int]] = {}
         p: DCT = DCT(threshold)
-        stg: dict[str, bool] = {}
+        stg: dict[str, tuple[int, int, int, int, int]] = {}
         rep: int = 0
         dst1: Image.Image = self.to_image(0b01).crop((0, begin, self.width * TILE_WIDTH, end))
         dst2: Image.Image = self.to_image(0b10).crop((0, begin, self.width * TILE_WIDTH, end))
@@ -191,15 +192,23 @@ class MSXBitmap_105:
                 approx: str = tile_hash(p.approximate_tile(bytes_))
                 if approx in stg:
                     rep += 1
+                    msx = [t.to_rgb(x, self.palette, frames=0b01) for t in self[y : y + TILE_HEIGHT][x // TILE_WIDTH]]
+                    print('1', msx)
+                    tiles[approx] = msx
+                    stg[approx].append((0b01, begin, end, y, x // TILE_WIDTH))
                 else:
-                    stg[approx] = True
+                    stg[approx] = [(0b01, begin, end, y, x // TILE_WIDTH)]
                 tile = dst2.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
                 bytes_ = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
                 approx = tile_hash(p.approximate_tile(bytes_))
                 if approx in stg:
                     rep += 1
+                    msx = [t.to_rgb(x, self.palette, frames=0b10) for t in self[y : y + TILE_HEIGHT][x // TILE_WIDTH]]
+                    print('2', msx)
+                    tiles[approx] = msx
+                    stg[approx].append((0b10, begin, end, y, x // TILE_WIDTH))
                 else:
-                    stg[approx] = True
+                    stg[approx] = [(0b01, begin, end, y, x // TILE_WIDTH)]
         # return (number of repetitions, number of used tiles) for the begin..end interval
         return rep, len(stg)
 
