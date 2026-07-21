@@ -176,6 +176,10 @@ class MSXBitmap_105:
         """Return the number of rows in the bitmap"""
         return len(self.data)
 
+    def to_tile(self, y: int, x: int, frame: int) -> list[int]:
+        return [row[x // TILE_WIDTH].to_rgb(n, self.palette, frames=0b01) for n in range(TILE_WIDTH) for row in self[y : y + 8]]
+
+
     def stats(self, begin: int = 0, end: Optional[int] = None, threshold: float = 0.1) -> tuple[int, int]:
         if end is None:
             end = self.height
