@@ -60,8 +60,12 @@ def main():
     dst = engine.convert(src)
 
     # the bigger the threshold, the greater the lossy compression
-    threshold = float(sys.argv[2]) if len(sys.argv) > 2 else 0.0
-    print(f'threshold: {threshold}')
+    if len(sys.argv) > 2:
+        threshold = sys.argv[2]
+        print(f'threshold: {threshold}')
+    else:
+        threshold = 0.0
+        print(f'threshold not specified, using {threshold}')
 
     # Print the stats of tile use
     rep, total = engine.stats(dst, 0, 64, threshold)
