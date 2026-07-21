@@ -206,8 +206,6 @@ public:
 			bitmap.append(msxBitmap->bitmap[i].c1);
 			bitmap.append(msxBitmap->bitmap[i].p1);
 		}
-		std::cout << "saving image size " << msxBitmap->width << " x " << msxBitmap->height
-			<< " (" << bitmap.size() << ") bytes\n";
 
 		// Get Python MSXBitmap_105 class
 		py::module_ data_module = py::module_::import("bmpto105_data");

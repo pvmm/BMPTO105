@@ -29,6 +29,16 @@ def open_bitmap(filename: str) -> Image.Image:
 P = TypeVar("P")
 
 
+def create_bitmap(width: int, height: int, data: list[tuple[int, int, int]]) -> Image.Image:
+    dst: Image.Image = Image.new('RGB', (width, height))
+    if len(data) != width * height:
+        raise ValueError(f'array size doesn\'t match bitmap dimensions {len(data)} vs {width * height}')
+    for y in range(height):
+        for x in range(width):
+            dst.putpixel((x, y), data[y * width + x])
+    return dst
+
+
 def tile_hash(tile: Buffer) -> str:
     return hashlib.md5(tile).hexdigest()
 

@@ -30,8 +30,6 @@ from pathlib import Path
 sys.path.append('..')
 import bmpto105
 
-from bmpto105 import BmpTo105
-
 
 TILE_WIDTH = TILE_HEIGHT = 8
 # specially made for 105-colours bitmap
@@ -56,7 +54,7 @@ def main():
     src = bmpto105.open_bitmap(str(path))
 
     # Create default palette and color combo table
-    engine = BmpTo105(palette)
+    engine = bmpto105.Engine(palette)
 
     # Convert png image to 105 mode
     dst = engine.convert(src)
@@ -66,11 +64,11 @@ def main():
     print(f'threshold: {threshold}')
 
     # Print the stats of tile use
-    rep, total = dst.stats2(0, 64, threshold)
+    rep, total = engine.stats(dst, 0, 64, threshold)
     print(f'range: 000-064: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
-    rep, total = dst.stats2(64, 128, threshold)
+    rep, total = engine.stats(dst, 64, 128, threshold)
     print(f'range: 064-128: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
-    rep, total = dst.stats2(128, 192, threshold)
+    rep, total = engine.stats(dst, 128, 192, threshold)
     print(f'range: 128-192: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
 
     # Save MSX bitmap and equivalent 105-colours bitmap

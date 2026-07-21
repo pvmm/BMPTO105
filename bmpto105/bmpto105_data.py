@@ -1,11 +1,14 @@
 import struct
-from typing import Optional, Any, Union, cast, Iterator, Sequence
+from typing import Optional, Any, Union, cast, Iterator, Sequence, BinaryIO
 
 from dataclasses import dataclass
 from PIL import Image
 
-from bmpto105.bmpto105_func import tile_hash
+import bmpto105
+
+from bmpto105.bmpto105_func import tile_hash, create_bitmap
 from bmpto105.dct import DCT
+
 
 # constants
 TILE_WIDTH: int = 8
@@ -176,45 +179,8 @@ class MSXBitmap_105:
         """Return the number of rows in the bitmap"""
         return len(self.data)
 
-    def to_tile(self, y: int, x: int, frame: int) -> list[int]:
-        return [row[x // TILE_WIDTH].to_rgb(n, self.palette, frames=0b01) for n in range(TILE_WIDTH) for row in self[y : y + 8]]
-
-
-    def stats(self, begin: int = 0, end: Optional[int] = None, threshold: float = 0.1) -> tuple[int, int]:
-        if end is None:
-            end = self.height
-        tiles: dict[str, list[int]] = {}
-        p: DCT = DCT(threshold)
-        stg: dict[str, tuple[int, int, int, int, int]] = {}
-        rep: int = 0
-        dst1: Image.Image = self.to_image(0b01).crop((0, begin, self.width * TILE_WIDTH, end))
-        dst2: Image.Image = self.to_image(0b10).crop((0, begin, self.width * TILE_WIDTH, end))
-        for y in range(0, end - begin, TILE_HEIGHT):
-            for x in range(0, self.width * TILE_WIDTH, TILE_WIDTH):
-                tile: Image.Image = dst1.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
-                bytes_: bytes = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
-                approx: str = tile_hash(p.approximate_tile(bytes_))
-                if approx in stg:
-                    rep += 1
-                    msx = [t.to_rgb(x, self.palette, frames=0b01) for t in self[y : y + TILE_HEIGHT][x // TILE_WIDTH]]
-                    print('1', msx)
-                    tiles[approx] = msx
-                    stg[approx].append((0b01, begin, end, y, x // TILE_WIDTH))
-                else:
-                    stg[approx] = [(0b01, begin, end, y, x // TILE_WIDTH)]
-                tile = dst2.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
-                bytes_ = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
-                approx = tile_hash(p.approximate_tile(bytes_))
-                if approx in stg:
-                    rep += 1
-                    msx = [t.to_rgb(x, self.palette, frames=0b10) for t in self[y : y + TILE_HEIGHT][x // TILE_WIDTH]]
-                    print('2', msx)
-                    tiles[approx] = msx
-                    stg[approx].append((0b10, begin, end, y, x // TILE_WIDTH))
-                else:
-                    stg[approx] = [(0b01, begin, end, y, x // TILE_WIDTH)]
-        # return (number of repetitions, number of used tiles) for the begin..end interval
-        return rep, len(stg)
+    def to_tile(self, y: int, x: int, frame: int) -> list[tuple[int, int, int]]:
+        return [row[x].to_rgb(n, self.palette, frames=frame) for n in range(TILE_WIDTH) for row in cast(list[MSXRow_105], self[y : y + 8])]
 
     def save_to_file(self, filename: str) -> None:
         debug(f'Saving "{filename}"... ', end='')
@@ -222,7 +188,7 @@ class MSXBitmap_105:
             self.save(file)
         debug('Done!')
 
-    def save(self, file: typing.BinaryIO) -> typing.BinaryIO:
+    def save(self, file: BinaryIO) -> BinaryIO:
         # dimensions header
         file.write(struct.pack('BB', self.width, self.height // 8))
         rows: list[MSXRow_105]
@@ -283,3 +249,65 @@ class MSXBitmap_105:
     def save_bitmap(self, filename: str) -> None:
         """save MSXBitmap_105 as a PNG image"""
         self.to_image().save(filename)
+
+
+class Engine:
+    '''encapsulates BmpTo105 C++ class'''
+
+    def __init__(self, palette: list[tuple[int, int, int]]):
+        self.palette = palette
+        self.bmpTo105 = bmpto105.BmpTo105(palette)
+
+    def convert(self, image: Image.Image) -> MSXBitmap_105:
+        return self.bmpTo105.convert(image)
+
+    def stats(self, bitmap: MSXBitmap_105, begin: int, end: int | None = None, threshold: float = 0.0) -> tuple[int, int]:
+        if end is None:
+            end = bitmap.height
+        tiles: dict[str, list[tuple[int, int, int]]] = {}
+        p: DCT = DCT(threshold)
+        stg: dict[str, list[tuple[int, int, int, int, int]]] = {}
+        rep: int = 0
+        # process each frame individually
+        frame0: Image.Image = bitmap.to_image(0b01).crop((0, begin, bitmap.width * TILE_WIDTH, end))
+        frame1: Image.Image = bitmap.to_image(0b10).crop((0, begin, bitmap.width * TILE_WIDTH, end))
+        for y in range(0, end - begin, TILE_HEIGHT):
+            for x in range(0, bitmap.width * TILE_WIDTH, TILE_WIDTH):
+                # even frame tile
+                tile = frame0.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
+                bytes_ = bytes(channels for pixel in list(tile.getdata()) for channels in pixel)
+                approx = p.approximate_tile(bytes_)
+                hash_ = tile_hash(approx)
+                if not hash_ in stg:
+                    # first reference
+                    stg[hash_] = [(0b01, begin, end, y, x // TILE_WIDTH)]
+                else:
+                    rep += 1
+                    # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
+                    unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
+                    nt = self.bmpTo105.convert(
+                            create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened)
+                    ).to_tile(0, 0, 0b01)
+                    tiles[hash_] = nt
+                    # subsequent references are appended
+                    stg[hash_].append((0b01, begin, end, y, x // TILE_WIDTH))
+                # odd frame tile
+                tile = frame1.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
+                bytes_ = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
+                approx = p.approximate_tile(bytes_)
+                hash_ = tile_hash(approx)
+                if not hash_ in stg:
+                    # first reference
+                    stg[hash_] = [(0b10, begin, end, y, x // TILE_WIDTH)]
+                else:
+                    rep += 1
+                    # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
+                    unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
+                    nt = self.bmpTo105.convert(
+                            create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened)
+                    ).to_tile(0, 0, 0b10)
+                    tiles[hash_] = nt
+                    # subsequent references are appended
+                    stg[hash_].append((0b10, begin, end, y, x // TILE_WIDTH))
+        # return (number of repetitions, number of used tiles) for the begin..end interval
+        return rep, len(stg)
