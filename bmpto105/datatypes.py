@@ -6,7 +6,7 @@ from PIL import Image
 
 import bmpto105
 
-from bmpto105.bmpto105_func import tile_hash, create_bitmap
+from bmpto105.functions import tile_hash, create_bitmap
 from bmpto105.dct import DCT
 
 

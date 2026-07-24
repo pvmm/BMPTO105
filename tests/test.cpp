@@ -171,8 +171,7 @@ bool loadImage(RGBBitmap& image, const std::string& filename)
 
 int main(int argc, char* argv[])
 {
-	if (argc != 2)
-	{
+	if (argc != 2) {
 		std::cout << "Usage: " << argv[0] << " <image filename>\n\n";
 		return 1;
 	}
@@ -181,17 +180,16 @@ int main(int argc, char* argv[])
 		0x000000, 0x000000, 0x24da24, 0x68ff68, 0x2424ff, 0x4868ff, 0xb62424, 0x48daff,
 		0xff2424, 0xff6868, 0xdada24, 0xdada91, 0x249124, 0xda48b6, 0xb6b6b6, 0xffffff
 	};
-	BmpTo105 bmpTo105(msxPalette);
-	auto palette = bmpTo105.getPalette();
 
 	std::string imgFilename = std::string(argv[1]);
-
 	RGBBitmap image;
 	if (!loadImage(image, imgFilename)) {
-	    return 2;
+		return 2;
 	}
 
-	MSXBitmap_105* msx = bmpTo105.convertImage(image);
+	BmpTo105 engine(msxPalette);
+	auto palette = engine.getPalette();
+	MSXBitmap_105* msx = engine.convertImage(image);
 
 	std::filesystem::path filePathMSX(imgFilename);
 
@@ -202,6 +200,9 @@ int main(int argc, char* argv[])
 	saveBitmap(filePathMSX.string(), msx, palette);
 
 	//benchmarker.print_results();
+
+	stbi_image_free(const_cast<uint8_t*>(image.ref.data()));
+
 	std::cout << "✅ execution successful!\n";
 	return 0;
 }

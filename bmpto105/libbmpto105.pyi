@@ -1,5 +1,5 @@
 import typing
-from .bmpto105_data import RGBColor, MSXBitmap_105
+from .datatypes import RGBColor, MSXBitmap_105
 from PIL import Image
 
 

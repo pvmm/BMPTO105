@@ -208,7 +208,7 @@ public:
 		}
 
 		// Get Python MSXBitmap_105 class
-		py::module_ data_module = py::module_::import("bmpto105_data");
+		py::module_ data_module = py::module_::import("datatypes");
 
 		// Create Python palette
 		py::object palette_class = data_module.attr("RGBColor");

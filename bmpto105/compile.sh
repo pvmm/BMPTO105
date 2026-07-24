@@ -4,10 +4,13 @@ OLD_CD=$PWD
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null || exit 1
 
 # activate python virtual env if not already active
-if [ -f "../.venv/bin/activate" ]; then
-	echo "Virtualenv detected, activating it..."
-	source ../.venv/bin/activate
+if [[ ! -n "$VIRTUAL_ENV" ]]; then
+	if [ -f "../.venv/bin/activate" ]; then
+		echo "Virtualenv detected but not active, activating it..."
+		source ../.venv/bin/activate
+	fi
 fi
+
 
 if [ "$1" = '--force' ]; then
 	echo "Removing old library to recompile..."

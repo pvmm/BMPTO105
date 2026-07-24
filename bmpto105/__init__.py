@@ -1,5 +1,5 @@
-from .bmpto105_data import *
-from .bmpto105_func import *
+from .datatypes import *
+from .functions import *
 from .libbmpto105 import BmpTo105
 
 
