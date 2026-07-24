@@ -264,13 +264,17 @@ class Engine:
     def stats(self, bitmap: MSXBitmap_105, begin: int, end: int | None = None, threshold: float = 0.0) -> tuple[int, int]:
         if end is None:
             end = bitmap.height
-        tiles: dict[str, list[tuple[int, int, int]]] = {}
+        #tiles: dict[str, list[tuple[int, int, int]]] = {}
         p: DCT = DCT(threshold)
-        stg: dict[str, list[tuple[int, int, int, int, int]]] = {}
+        # pattern generator table (pgt[hash: str | pattern_no: int] -> (patterno_no, pattern_data: str))
+        pgt: dict[str | int, tuple[int, list[int]]] = {}
+        # pattern name table (pnt[frame: int][index: int] -> pattern_no: int)
+        pnt: tuple[list[int], list[int]] = ([], [])
         rep: int = 0
         # process each frame individually
         frame0: Image.Image = bitmap.to_image(0b01).crop((0, begin, bitmap.width * TILE_WIDTH, end))
         frame1: Image.Image = bitmap.to_image(0b10).crop((0, begin, bitmap.width * TILE_WIDTH, end))
+        pos: int = 0
         for y in range(0, end - begin, TILE_HEIGHT):
             for x in range(0, bitmap.width * TILE_WIDTH, TILE_WIDTH):
                 # even frame tile
@@ -278,36 +282,39 @@ class Engine:
                 bytes_ = bytes(channels for pixel in list(tile.getdata()) for channels in pixel)
                 approx = p.approximate_tile(bytes_)
                 hash_ = tile_hash(approx)
-                if not hash_ in stg:
-                    # first reference
-                    stg[hash_] = [(0b01, begin, end, y, x // TILE_WIDTH)]
-                else:
-                    rep += 1
+                if not hash_ in pgt:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
-                    nt = self.bmpTo105.convert(
-                            create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened)
-                    ).to_tile(0, 0, 0b01)
-                    tiles[hash_] = nt
-                    # subsequent references are appended
-                    stg[hash_].append((0b01, begin, end, y, x // TILE_WIDTH))
+                    # convert bitmap into MSX tile
+                    t = [(row[0].c0, row[0].p0) for row in self.bmpTo105.convert(
+                        create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
+                    # store tile as the hash to VRAM position
+                    pgt[hash_] = pgt[pos] = (pos, t)
+                    # add tile reference to pattern name table
+                    pnt[0].append(pos)
+                    pos += 1
+                else:
+                    pnt[0].append(pgt[hash_][0])
+                    rep += 1
                 # odd frame tile
                 tile = frame1.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
                 bytes_ = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
                 approx = p.approximate_tile(bytes_)
                 hash_ = tile_hash(approx)
-                if not hash_ in stg:
-                    # first reference
-                    stg[hash_] = [(0b10, begin, end, y, x // TILE_WIDTH)]
-                else:
-                    rep += 1
+                if not hash_ in pgt:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
-                    nt = self.bmpTo105.convert(
-                            create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened)
-                    ).to_tile(0, 0, 0b10)
-                    tiles[hash_] = nt
-                    # subsequent references are appended
-                    stg[hash_].append((0b10, begin, end, y, x // TILE_WIDTH))
-        # return (number of repetitions, number of used tiles) for the begin..end interval
-        return rep, len(stg)
+                    # convert bitmap into MSX tile
+                    t = [(row[0].c0, row[0].p0) for row in self.bmpTo105.convert(
+                        create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
+                    # store tile as the hash to VRAM position
+                    pgt[hash_] = pgt[pos] = (pos, t)
+                    # add tile reference to pattern name table
+                    pnt[1].append(pos)
+                    pos += 1
+                else:
+                    pnt[1].append(pgt[hash_][0])
+                    rep += 1
+
+        # return (number of repetitions, total number of used tiles, pattern generator table and pattern name table)
+        return rep, len(pgt) // 2, pgt, pnt

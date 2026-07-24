@@ -68,15 +68,15 @@ def main():
         print(f'threshold not specified, using {threshold}')
 
     # Print the stats of tile use
-    rep, total = engine.stats(dst, 0, 64, threshold)
+    rep, total, pgt, pnt = engine.stats(dst, 0, 64, threshold)
     print(f'range: 000-064: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
-    rep, total = engine.stats(dst, 64, 128, threshold)
+    rep, total, pgt, pnt = engine.stats(dst, 64, 128, threshold)
     print(f'range: 064-128: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
-    rep, total = engine.stats(dst, 128, 192, threshold)
+    rep, total, pgt, pnt = engine.stats(dst, 128, 192, threshold)
     print(f'range: 128-192: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
 
     # Save MSX bitmap and equivalent 105-colours bitmap
-    dst.save(str(path.with_suffix('.si2')))
+    dst.save_to_file(str(path.with_suffix('.si2')))
     dst.save_bitmap(str(path.with_suffix('.105.png')))
 
 
