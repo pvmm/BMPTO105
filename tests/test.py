@@ -76,8 +76,8 @@ def main():
     print(f'range: 128-192: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
 
     # Save MSX bitmap and equivalent 105-colours bitmap
-    dst.save_to_file(str(path.with_suffix('.si2')))
-    dst.save_bitmap(str(path.with_suffix('.105.png')))
+    dst.save_msx(str(path.with_suffix('.si2')))
+    dst.save_image(str(path.with_suffix('.105.png')))
 
 
 if __name__ == '__main__':

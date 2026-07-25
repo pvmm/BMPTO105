@@ -74,7 +74,7 @@ struct RGBBitmap
 		: width(w), height(h), channels(c), data(), ref(data, w * h * c) {}
 };
 
-struct MSXBitmap_105
+struct MSXBitmap
 {
 	uint32_t width;
 	uint32_t height;
@@ -88,11 +88,11 @@ struct MSXBitmap_105
 	} bitmap[]; // grows dynamically
 
 	// Constructor
-	MSXBitmap_105(int w = 0, int h = 0)
+	MSXBitmap(int w = 0, int h = 0)
 		: width(w), height(h) {}
 };
 
-struct Color_105
+struct ColorMix
 {
 	struct {
 		uint8_t c0;
@@ -117,11 +117,11 @@ public:
 
 	const std::vector<RGBColor>& getPalette() const;
 
-	MSXBitmap_105* convertImage(RGBBitmap& image);
+	MSXBitmap* convertImage(RGBBitmap& image);
 
 protected:
 	std::vector<RGBColor> palette;
-	std::vector<std::array<Color_105, 4>> colorComboTable;
+	std::vector<std::array<ColorMix, 4>> colorComboTable;
 
 #ifdef _USE_DEBUG_
 	// Measure performance
@@ -132,4 +132,4 @@ private:
 	uint32_t findBestMatch(RGBColor* source);
 };
 
-int createColorCombo(const std::vector<RGBColor>& palette, std::vector<std::array<Color_105, 4>>& colorCombo);
+int createColorCombo(const std::vector<RGBColor>& palette, std::vector<std::array<ColorMix, 4>>& colorCombo);

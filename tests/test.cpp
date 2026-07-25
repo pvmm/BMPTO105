@@ -41,7 +41,7 @@
 #define TILE_WIDTH 8
 #define NIBBLE_SIZE 4
 
-void saveMSXBitmap(const std::string& filename, const MSXBitmap_105* msx)
+void save_to_file(const std::string& filename, const MSXBitmap_105* msx)
 {
 	FILE* f = fopen(filename.c_str(), "wb");
 	if (f == NULL)
@@ -194,7 +194,7 @@ int main(int argc, char* argv[])
 	std::filesystem::path filePathMSX(imgFilename);
 
 	filePathMSX.replace_extension(".si2");
-	saveMSXBitmap(filePathMSX.string(), msx);
+	save_to_file(filePathMSX.string(), msx);
 
 	filePathMSX.replace_extension(".105.png");
 	saveBitmap(filePathMSX.string(), msx, palette);

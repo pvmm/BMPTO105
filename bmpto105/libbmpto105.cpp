@@ -38,7 +38,7 @@
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 #define MAKE_COLOR105(c0, c1, pal) \
-	Color_105{ \
+	ColorMix{ \
 		{c0, c1}, \
 		{ \
 			static_cast<uint8_t>((pal[c0].r + pal[c1].r) / 2), \
@@ -48,7 +48,7 @@
 	}
 
 [[maybe_unused]]
-static void printColorCombo(std::array<Color_105, 4>& colors)
+static void printColorCombo(std::array<ColorMix, 4>& colors)
 {
 	std::cerr << "color combo: "
 			<< (int)colors[0].rgb.r << "," << (int)colors[0].rgb.g << "," << (int)colors[0].rgb.b << ", "
@@ -63,7 +63,7 @@ static void printRGBColor(RGBColor& color)
 	std::cerr << "color: " << (int)color.r << "," << (int)color.g << "," << (int)color.b << "\n";
 }
 
-int createColorCombo(const std::vector<RGBColor>& palette, std::vector<std::array<Color_105, 4>>& colorCombo)
+int createColorCombo(const std::vector<RGBColor>& palette, std::vector<std::array<ColorMix, 4>>& colorCombo)
 {
 	colorCombo.reserve(6020);
 
@@ -219,9 +219,9 @@ uint32_t BmpTo105::findBestMatch(RGBColor* source)
 	return bestIndex;
 }
 
-MSXBitmap_105* BmpTo105::convertImage(RGBBitmap& img)
+MSXBitmap* BmpTo105::convertImage(RGBBitmap& img)
 {
-	MSXBitmap_105* msx = (MSXBitmap_105*) std::calloc(1, sizeof(MSXBitmap_105) + 4 * (img.width / 8) * img.height);
+	MSXBitmap* msx = (MSXBitmap*) std::calloc(1, sizeof(MSXBitmap) + 4 * (img.width / 8) * img.height);
 	msx->width  = img.width / 8;
 	msx->height = img.height / 8;
 

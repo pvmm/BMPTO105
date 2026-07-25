@@ -194,7 +194,7 @@ public:
 
 		// Create RGBBitmap and convert
 		RGBBitmap rgbBitmap(width, height, 3 /* channels */, data);
-		MSXBitmap_105* msxBitmap = convertImage(rgbBitmap);
+		MSXBitmap* msxBitmap = convertImage(rgbBitmap);
 
 		// Convert MSX bitmap data to Python list
 		py::list bitmap;
@@ -207,18 +207,18 @@ public:
 			bitmap.append(msxBitmap->bitmap[i].p1);
 		}
 
-		// Get Python MSXBitmap_105 class
-		py::module_ data_module = py::module_::import("datatypes");
+		// Get Python MSX Bitmap class
+		py::module_ datatypes_module = py::module_::import("datatypes");
 
 		// Create Python palette
-		py::object palette_class = data_module.attr("RGBColor");
+		py::object palette_class = datatypes_module.attr("RGBColor");
 		py::list pylette;
 		for (const RGBColor& c: palette) {
 			pylette.append(palette_class(c.r, c.g, c.b));
 		}
 
 		// Create Python object with data
-		py::object MSXBitmap_class = data_module.attr("MSXBitmap_105");
+		py::object MSXBitmap_class = datatypes_module.attr("MSXBitmap");
 		py::object result = MSXBitmap_class(
 			msxBitmap->width,
 			height,
@@ -254,7 +254,7 @@ PYBIND11_MODULE(libbmpto105, m) {
 			 "Construct the engine with a palette (list of 16 RGB tuples or uint32_t values)")
 		.def("convert", &BmpTo105_ModuleEngine::convertFromPy,
 			 py::arg("image"),
-			 "Convert RGBBitmap to MSXBitmap_105 using the palette")
+			 "Convert RGBBitmap to MSXBitmap using the palette")
 		.def("get_palette", &BmpTo105::getPalette,
 			 "Get the current palette as a list of RGB colors");
 }

@@ -126,7 +126,7 @@ class MSXRow_105:
         return len(self.data)
 
 
-class MSXBitmap_105:
+class MSXBitmap:
     width: int
     height: int
     _palette: list[RGBColor]
@@ -172,7 +172,7 @@ class MSXBitmap_105:
         return self.data[key]
 
     def __iter__(self) -> Iterator[MSXRow_105]:
-        """Make MSXBitmap_105 iterable"""
+        """Make MSX Bitmap iterable"""
         return iter(self.data)
 
     def __len__(self) -> int:
@@ -182,7 +182,7 @@ class MSXBitmap_105:
     def to_tile(self, y: int, x: int, frame: int) -> list[tuple[int, int, int]]:
         return [row[x].to_rgb(n, self.palette, frames=frame) for n in range(TILE_WIDTH) for row in cast(list[MSXRow_105], self[y : y + 8])]
 
-    def save_to_file(self, filename: str) -> None:
+    def save_msx(self, filename: str) -> None:
         debug(f'Saving "{filename}"... ', end='')
         with open(filename, 'wb') as file:
             self.save(file)
@@ -233,7 +233,7 @@ class MSXBitmap_105:
         return metatile
 
     def to_image(self, frames: int = 0b11) -> Image.Image:
-        """convert MSXBitmap_105 to PIL Image"""
+        """convert MSX Bitmap to PIL Image"""
         dst: Image.Image = Image.new('RGB', (self.width * TILE_WIDTH, self.height))
         width: int
         height: int
@@ -246,8 +246,8 @@ class MSXBitmap_105:
                     dst.putpixel((x * TILE_WIDTH + tx, y), pixel)
         return dst
 
-    def save_bitmap(self, filename: str) -> None:
-        """save MSXBitmap_105 as a PNG image"""
+    def save_image(self, filename: str) -> None:
+        """save Bitmap to a file"""
         self.to_image().save(filename)
 
 
@@ -258,10 +258,10 @@ class Engine:
         self.palette = palette
         self.bmpTo105 = bmpto105.BmpTo105(palette)
 
-    def convert(self, image: Image.Image) -> MSXBitmap_105:
+    def convert(self, image: Image.Image) -> MSXBitmap:
         return self.bmpTo105.convert(image)
 
-    def stats(self, bitmap: MSXBitmap_105, begin: int, end: int | None = None, threshold: float = 0.0) -> tuple[int, int]:
+    def stats(self, bitmap: MSXBitmap, begin: int, end: int | None = None, threshold: float = 0.0) -> tuple[int, int]:
         if end is None:
             end = bitmap.height
         #tiles: dict[str, list[tuple[int, int, int]]] = {}
