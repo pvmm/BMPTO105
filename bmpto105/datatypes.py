@@ -1,5 +1,5 @@
 import struct
-from typing import Optional, Any, Union, cast, Iterator, Sequence, BinaryIO
+from typing import Optional, Any, Union, cast, Iterator, Sequence, BinaryIO, TypedDict
 
 from dataclasses import dataclass
 from PIL import Image
@@ -251,6 +251,19 @@ class MSXBitmap:
         self.to_image().save(filename)
 
 
+# pattern generator table (pgt[hash: str | pattern_no: int] -> (pattern_no, pattern_data: list[(int, int)]))
+type PGT = dict[str | int, tuple[int, list[tuple[int, int]]]]
+# pattern name table (pnt[frame: int][index: int] -> pattern_no: int)
+type PNT = tuple[list[int], list[int]]
+
+
+class ScreenAttributes(TypedDict):
+    reused: int
+    total: int
+    pgt: PGT
+    pnt: PNT
+
+
 class Engine:
     '''encapsulates BmpTo105 C++ class'''
 
@@ -261,15 +274,12 @@ class Engine:
     def convert(self, image: Image.Image) -> MSXBitmap:
         return self.bmpTo105.convert(image)
 
-    def stats(self, bitmap: MSXBitmap, begin: int, end: int | None = None, threshold: float = 0.0) -> tuple[int, int]:
+    def stats(self, bitmap: MSXBitmap, begin: int, end: int | None = None, threshold: float = 0.0) -> ScreenAttributes:
         if end is None:
             end = bitmap.height
-        #tiles: dict[str, list[tuple[int, int, int]]] = {}
         p: DCT = DCT(threshold)
-        # pattern generator table (pgt[hash: str | pattern_no: int] -> (patterno_no, pattern_data: str))
-        pgt: dict[str | int, tuple[int, list[int]]] = {}
-        # pattern name table (pnt[frame: int][index: int] -> pattern_no: int)
-        pnt: tuple[list[int], list[int]] = ([], [])
+        pgt: PGT = {}
+        pnt: PNT = ([], [])
         rep: int = 0
         # process each frame individually
         frame0: Image.Image = bitmap.to_image(0b01).crop((0, begin, bitmap.width * TILE_WIDTH, end))
@@ -317,4 +327,4 @@ class Engine:
                     rep += 1
 
         # return (number of repetitions, total number of used tiles, pattern generator table and pattern name table)
-        return rep, len(pgt) // 2, pgt, pnt
+        return {'reused': rep, 'total': len(pgt) // 2, 'pgt': pgt, 'pnt': pnt}

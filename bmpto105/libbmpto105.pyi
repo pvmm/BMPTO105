@@ -1,11 +1,11 @@
 import typing
-from .datatypes import RGBColor, MSXBitmap_105
+from .datatypes import RGBColor, MSXBitmap
 from PIL import Image
 
 
 class BmpTo105:
     def __init__(self, palette: typing.Sequence[tuple[int, int, int]]) -> None: ...
-    def convert(self, image: Image.Image) -> MSXBitmap_105: ...
+    def convert(self, image: Image.Image) -> MSXBitmap: ...
     def get_palette(self) -> list[RGBColor]: ...
 
 class _RGBBitmap:
