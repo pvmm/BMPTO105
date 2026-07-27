@@ -41,7 +41,7 @@
 #define TILE_WIDTH 8
 #define NIBBLE_SIZE 4
 
-void save_to_file(const std::string& filename, const MSXBitmap_105* msx)
+void save_to_file(const std::string& filename, const MSXBitmap* msx)
 {
 	FILE* f = fopen(filename.c_str(), "wb");
 	if (f == NULL)
@@ -110,7 +110,7 @@ void save_to_file(const std::string& filename, const MSXBitmap_105* msx)
 	fclose(f);
 }
 
-void saveBitmap(const std::string& filename, const MSXBitmap_105* msx, const std::vector<RGBColor>& palette)
+void saveBitmap(const std::string& filename, const MSXBitmap* msx, const std::vector<RGBColor>& palette)
 {
 	CONSOLE(
 		std::cout << "Save " << msx->width << "x" << msx->height << " 105-colour bitmap\n";
@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
 
 	BmpTo105 engine(msxPalette);
 	auto palette = engine.getPalette();
-	MSXBitmap_105* msx = engine.convertImage(image);
+	MSXBitmap* msx = engine.convertImage(image);
 
 	std::filesystem::path filePathMSX(imgFilename);
 

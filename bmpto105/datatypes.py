@@ -30,7 +30,7 @@ class RGBColor:
 
 
 @dataclass
-class MSXUnit_105:
+class MSXBitmapUnit:
     '''1x8 block unit from a tile'''
     c0: int
     p0: int
@@ -89,10 +89,10 @@ class MSXUnit_105:
                 self.c1 = (self.c1 & 0xf0) | bg
 
 
-class MSXRow_105:
+class MSXBitmapRow:
     '''screen line from 0 to 255'''
     width: int
-    _data: list[MSXUnit_105]
+    _data: list[MSXBitmapUnit]
 
     def __init__(self, width: int, data: Optional[list[int]] = None) -> None:
         """width: number of tiles horizontally"""
@@ -105,20 +105,20 @@ class MSXRow_105:
             self.data = data
 
     @property
-    def data(self) -> list[MSXUnit_105]:
+    def data(self) -> list[MSXBitmapUnit]:
         return self._data
 
     @data.setter
     def data(self, data: list[int]) -> None:
         if len(data) % TILE_ROW_WIDTH != 0:
             raise ValueError(f'105-colour image data is not a multiple of {TILE_ROW_WIDTH}')
-        self._data = [MSXUnit_105(*data[i: i + TILE_ROW_WIDTH]) for i in range(0, len(data), TILE_ROW_WIDTH)]
+        self._data = [MSXBitmapUnit(*data[i: i + TILE_ROW_WIDTH]) for i in range(0, len(data), TILE_ROW_WIDTH)]
 
-    def __getitem__(self, x: int) -> MSXUnit_105:
+    def __getitem__(self, x: int) -> MSXBitmapUnit:
         return self.data[x]
 
-    def __iter__(self) -> Iterator[MSXUnit_105]:
-        """Make MSXRow_105 iterable"""
+    def __iter__(self) -> Iterator[MSXBitmapUnit]:
+        """Make MSXBitmapRow iterable"""
         return iter(self.data)
 
     def __len__(self) -> int:
@@ -130,7 +130,7 @@ class MSXBitmap:
     width: int
     height: int
     _palette: list[RGBColor]
-    _data: list[MSXRow_105]
+    _data: list[MSXBitmapRow]
 
     def __init__(self, width: int, height: int, palette: list[RGBColor], data: Optional[list[int]] = None) -> None:
         """height: number of rows vertically, width: number of tiles (not pixels) horizontally"""
@@ -153,7 +153,7 @@ class MSXBitmap:
         self._palette = palette
 
     @property
-    def data(self) -> list[MSXRow_105]:
+    def data(self) -> list[MSXBitmapRow]:
         return self._data
 
     @data.setter
@@ -163,15 +163,15 @@ class MSXBitmap:
             raise ValueError(f'105-colour image data size and dimensions don\'t match, expected {length}, got {len(data)}')
         # stride is the size of a single line from the image
         stride: int = self.width * TILE_ROW_WIDTH
-        self._data = [MSXRow_105(self.width, data[i: i + stride]) for i in range(0, len(data), stride)]
+        self._data = [MSXBitmapRow(self.width, data[i: i + stride]) for i in range(0, len(data), stride)]
 
-    def __getitem__(self, key: Union[int, slice]) -> Union[MSXRow_105, list[MSXRow_105]]:
+    def __getitem__(self, key: Union[int, slice]) -> Union[MSXBitmapRow, list[MSXBitmapRow]]:
         """Support both integer and slice indexing"""
         if isinstance(key, slice):
             return self.data[key]
         return self.data[key]
 
-    def __iter__(self) -> Iterator[MSXRow_105]:
+    def __iter__(self) -> Iterator[MSXBitmapRow]:
         """Make MSX Bitmap iterable"""
         return iter(self.data)
 
@@ -180,7 +180,7 @@ class MSXBitmap:
         return len(self.data)
 
     def to_tile(self, y: int, x: int, frame: int) -> list[tuple[int, int, int]]:
-        return [row[x].to_rgb(n, self.palette, frames=frame) for n in range(TILE_WIDTH) for row in cast(list[MSXRow_105], self[y : y + 8])]
+        return [row[x].to_rgb(n, self.palette, frames=frame) for n in range(TILE_WIDTH) for row in cast(list[MSXBitmapRow], self[y : y + 8])]
 
     def save_msx(self, filename: str) -> None:
         debug(f'Saving "{filename}"... ', end='')
@@ -191,29 +191,29 @@ class MSXBitmap:
     def save(self, file: BinaryIO) -> BinaryIO:
         # dimensions header
         file.write(struct.pack('BB', self.width, self.height // 8))
-        rows: list[MSXRow_105]
+        rows: list[MSXBitmapRow]
 
         # Save patterns for even image
         for y in range(0, self.height, TILE_HEIGHT):
-            rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
+            rows = cast(list[MSXBitmapRow], self[y : y + TILE_HEIGHT])
             for x in range(0, self.width):
                 file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p0 for pixel in [row[x] for row in rows]]))
 
         # Save colours for even image
         for y in range(0, self.height, TILE_HEIGHT):
-            rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
+            rows = cast(list[MSXBitmapRow], self[y : y + TILE_HEIGHT])
             for x in range(0, self.width):
                 file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c0 for pixel in [row[x] for row in rows]]))
 
         # Save patterns for odd image
         for y in range(0, self.height, TILE_HEIGHT):
-            rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
+            rows = cast(list[MSXBitmapRow], self[y : y + TILE_HEIGHT])
             for x in range(0, self.width):
                 file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p1 for pixel in [row[x] for row in rows]]))
 
         # Save colours for even image
         for y in range(0, self.height, TILE_HEIGHT):
-            rows = cast(list[MSXRow_105], self[y : y + TILE_HEIGHT])
+            rows = cast(list[MSXBitmapRow], self[y : y + TILE_HEIGHT])
             for x in range(0, self.width):
                 file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c1 for pixel in [row[x] for row in rows]]))
 
@@ -226,7 +226,7 @@ class MSXBitmap:
         metatile: list[int] = []
         for y in range(y0, y0 + height):
             for x in range(x0, x0 + width):
-                tile: MSXUnit_105 = cast(MSXUnit_105, self[y][x])
+                tile: MSXBitmapUnit = cast(MSXBitmapUnit, self[y][x])
                 p: int = [tile.p0, tile.p1][frame - 1]
                 c: int = [tile.c0, tile.c1][frame - 1]
                 metatile.extend([p, c])
@@ -241,7 +241,7 @@ class MSXBitmap:
         for y in range(height):
             for x in range(self.width):
                 for tx in range(TILE_WIDTH):
-                    tile: MSXUnit_105 = cast(MSXUnit_105, self[y][x])
+                    tile: MSXBitmapUnit = cast(MSXBitmapUnit, self[y][x])
                     pixel: tuple[int, int, int] = tile.to_rgb(tx, self.palette, frames)
                     dst.putpixel((x * TILE_WIDTH + tx, y), pixel)
         return dst
@@ -266,6 +266,7 @@ class ScreenAttributes(TypedDict):
 
 class Engine:
     '''encapsulates BmpTo105 C++ class'''
+    palette: list[tuple[int, int, int]]
 
     def __init__(self, palette: list[tuple[int, int, int]]):
         self.palette = palette

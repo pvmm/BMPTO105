@@ -68,12 +68,26 @@ def main():
         print(f'threshold not specified, using {threshold}')
 
     # Print the stats of tile use
-    rep, total, pgt, pnt = engine.stats(dst, 0, 64, threshold)
-    print(f'range: 000-064: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
-    rep, total, pgt, pnt = engine.stats(dst, 64, 128, threshold)
-    print(f'range: 064-128: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
-    rep, total, pgt, pnt = engine.stats(dst, 128, 192, threshold)
-    print(f'range: 128-192: size: {total}{'*' if total > 256 else ''}, repetition: {rep}')
+    stats = (
+         engine.stats(dst, 0, 64, threshold),
+         engine.stats(dst, 64, 128, threshold),
+         engine.stats(dst, 128, 196, threshold)
+    )
+
+    reuse = [0, 0, 0]
+    total = [0, 0, 0]
+    pgt: list[PGT] = [{}, {}, {}]
+    pnt: list[PNT] = [([], []), ([], []), ([], [])]
+
+    for n, region in enumerate(stats):
+        reuse[n] = region['reused']
+        total[n] = region['total']
+        pgt[n] = region['pgt']
+        pnt[n] = region['pnt']
+
+    print(f'range: 000-064: size: {total[0]}{'*' if total[0] > 256 else ''}, repetition: {reuse[0]}')
+    print(f'range: 064-128: size: {total[1]}{'*' if total[1] > 256 else ''}, repetition: {reuse[1]}')
+    print(f'range: 128-192: size: {total[2]}{'*' if total[2] > 256 else ''}, repetition: {reuse[2]}')
 
     # Save MSX bitmap and equivalent 105-colours bitmap
     dst.save_msx(str(path.with_suffix('.si2')))
