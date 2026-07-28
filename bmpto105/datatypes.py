@@ -251,10 +251,10 @@ class MSXBitmap:
         self.to_image().save(filename)
 
 
-# pattern generator table (pgt[hash: str | pattern_no: int] -> (pattern_no, pattern_data: list[(int, int)]))
-type PGT = dict[str | int, tuple[int, list[tuple[int, int]]]]
+# pattern generator table (pgt[hash: str] -> pattern_data: list[(int, int)])
+type PGT = dict[str, list[tuple[int, int]]]
 # pattern name table (pnt[frame: int][index: int] -> pattern_no: int)
-type PNT = tuple[list[int], list[int]]
+type PNT = tuple[list[str], list[str]]
 
 
 class ScreenAttributes(TypedDict):
@@ -298,15 +298,14 @@ class Engine:
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
                     # convert bitmap into MSX tile
                     t = [(row[0].c0, row[0].p0) for row in self.bmpTo105.convert(
-                        create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
-                    # store tile as the hash to VRAM position
-                    pgt[hash_] = pgt[pos] = (pos, t)
-                    # add tile reference to pattern name table
-                    pnt[0].append(pos)
-                    pos += 1
+                          create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
+                    # store tile as the hash to VRAM pattern/color
+                    pgt[hash_] = t
                 else:
-                    pnt[0].append(pgt[hash_][0])
                     rep += 1
+                # add tile reference to pattern name table
+                pnt[0].append(hash_)
+
                 # odd frame tile
                 tile = frame1.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
                 bytes_ = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
@@ -317,15 +316,13 @@ class Engine:
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
                     # convert bitmap into MSX tile
                     t = [(row[0].c0, row[0].p0) for row in self.bmpTo105.convert(
-                        create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
-                    # store tile as the hash to VRAM position
-                    pgt[hash_] = pgt[pos] = (pos, t)
-                    # add tile reference to pattern name table
-                    pnt[1].append(pos)
-                    pos += 1
+                          create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
+                    # store tile as the hash to VRAM pattern/color
+                    pgt[hash_] = t
                 else:
-                    pnt[1].append(pgt[hash_][0])
                     rep += 1
+                # add tile reference to pattern name table
+                pnt[1].append(hash_)
 
         # return (number of repetitions, total number of used tiles, pattern generator table and pattern name table)
-        return {'reused': rep, 'total': len(pgt) // 2, 'pgt': pgt, 'pnt': pnt}
+        return {'reused': rep, 'total': len(pgt), 'pgt': pgt, 'pnt': pnt}
