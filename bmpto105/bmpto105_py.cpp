@@ -11,48 +11,12 @@
 #include "libbmpto105.hpp"
 
 namespace py = pybind11;
+static py::object datatypes_module;
 
 #include <Python.h>
 #include <filesystem>
 
 namespace fs = std::filesystem;
-
-// Call this inside your module initialization function
-void add_library_dir_to_sys_path(PyObject* module)
-{
-    // Get the module's "__file__" attribute
-    PyObject* file_obj = PyObject_GetAttrString(module, "__file__");
-    if (!file_obj) return; // Handle error if __file__ is missing
-
-    // Convert PyObject string to a standard C string
-    const char* file_path_str = PyUnicode_AsUTF8(file_obj);
-    if (!file_path_str) {
-        Py_DECREF(file_obj);
-        return;
-    }
-
-    // Use std::filesystem to get the directory holding the library
-    fs::path lib_path(file_path_str);
-    fs::path lib_dir = lib_path.parent_path();
-
-    // Get Python's sys.path list
-    PyObject* sys_module = PyImport_ImportModule("sys");
-    if (!sys_module) {
-        Py_DECREF(file_obj);
-        return;
-    }
-    PyObject* sys_path = PyObject_GetAttrString(sys_module, "path");
-
-    // Convert our path back to a Python string and append it to sys.path
-    PyObject* lib_dir_py = PyUnicode_FromString(lib_dir.string().c_str());
-    PyList_Append(sys_path, lib_dir_py);
-
-    // Clean up references
-    Py_DECREF(file_obj);
-    Py_DECREF(sys_module);
-    Py_DECREF(sys_path);
-    Py_DECREF(lib_dir_py);
-}
 
 // Helper: Convert py::sequence to std::span
 template<typename T>
@@ -207,14 +171,11 @@ public:
 			bitmap.append(msxBitmap->bitmap[i].p1);
 		}
 
-		// Get Python MSX Bitmap class
-		py::module_ datatypes_module = py::module_::import("datatypes");
-
 		// Create Python palette
-		py::object palette_class = datatypes_module.attr("RGBColor");
+		py::object RGBColor_class = datatypes_module.attr("RGBColor");
 		py::list pylette;
 		for (const RGBColor& c: palette) {
-			pylette.append(palette_class(c.r, c.g, c.b));
+			pylette.append(RGBColor_class(c.r, c.g, c.b));
 		}
 
 		// Create Python object with data
@@ -233,10 +194,10 @@ public:
 
 // The binding code
 PYBIND11_MODULE(libbmpto105, m) {
-	// Append library path to sys.path
-	fs::path lib_dir = fs::path(m.attr("__file__").cast<std::string>()).parent_path();
-	py::module_ sys = py::module_::import("sys");
-	sys.attr("path").attr("append")(lib_dir.string());
+	// access .datatype submodule from C++ code
+	py::object current_package = m.attr("__package__");
+	py::object import_module = py::module_::import("importlib").attr("import_module");
+	datatypes_module = import_module(".datatypes", current_package);
 
 	m.doc() = "Convert any bitmap format to 105 colors mode (MSX)";
 
@@ -257,4 +218,10 @@ PYBIND11_MODULE(libbmpto105, m) {
 			 "Convert RGBBitmap to MSXBitmap using the palette")
 		.def("get_palette", &BmpTo105::getPalette,
 			 "Get the current palette as a list of RGB colors");
+
+	// called when python interpreter is shuting down
+	auto atexit = py::module_::import("atexit");
+	atexit.attr("register")(py::cpp_function([]() {
+		datatypes_module.release();
+	}));
 }
