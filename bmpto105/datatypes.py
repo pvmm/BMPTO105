@@ -251,8 +251,11 @@ class MSXBitmap:
         self.to_image().save(filename)
 
 
+# pattern change list (list of tiles that changed, separated by even and odd frames)
+type PCL = tuple[set[str], set[str]]
 # pattern generator table (pgt[hash: str] -> pattern_data: list[(int, int)])
-type PGT = dict[str, list[tuple[int, int]]]
+type PGT0 = dict[str, list[tuple[int, int]]]
+type PGT = tuple[PGT0, PGT0]
 # pattern name table (pnt[frame: int][index: int] -> pattern_no: int)
 type PNT = tuple[list[str], list[str]]
 
@@ -260,7 +263,7 @@ type PNT = tuple[list[str], list[str]]
 class ScreenState(TypedDict):
     pgt: PGT
     pnt: PNT
-    reused: set[str] # list of tiles that need update
+    pcl: PCL
 
 
 class Engine:
@@ -278,9 +281,9 @@ class Engine:
         if end is None:
             end = bitmap.height
         p: DCT = DCT(threshold)
-        pgt: PGT = {}
+        pgt: PGT = ({}, {})
         pnt: PNT = ([], [])
-        reused: set[str] = set()
+        pcl: PCL = (set(), set())
         # process each frame individually
         frame0: Image.Image = bitmap.to_image(0b01).crop((0, begin, bitmap.width * TILE_WIDTH, end))
         frame1: Image.Image = bitmap.to_image(0b10).crop((0, begin, bitmap.width * TILE_WIDTH, end))
@@ -292,16 +295,16 @@ class Engine:
                 bytes_ = bytes(channels for pixel in list(tile.getdata()) for channels in pixel)
                 approx = p.approximate_tile(bytes_)
                 hash_ = tile_hash(approx)
-                if not hash_ in pgt:
+                if not hash_ in pgt[0]:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
                     # convert bitmap into MSX tile
                     t = [(row[0].c0, row[0].p0) for row in self.bmpTo105.convert(
                           create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
                     # store tile as the hash to VRAM pattern/color
-                    pgt[hash_] = t
+                    pgt[0][hash_] = t
                 else:
-                    reused.add(hash_)
+                    pcl[0].add(hash_)
                 # add tile reference to pattern name table
                 pnt[0].append(hash_)
 
@@ -310,19 +313,19 @@ class Engine:
                 bytes_ = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
                 approx = p.approximate_tile(bytes_)
                 hash_ = tile_hash(approx)
-                if not hash_ in pgt:
+                if not hash_ in pgt[1]:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
                     # convert bitmap into MSX tile
                     t = [(row[0].c0, row[0].p0) for row in self.bmpTo105.convert(
                           create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
                     # store tile as the hash to VRAM pattern/color
-                    pgt[hash_] = t
+                    pgt[1][hash_] = t
                 else:
-                    reused.add(hash_)
+                    pcl[1].add(hash_)
                 # add tile reference to pattern name table
                 pnt[1].append(hash_)
 
-        # return (reused tiles, pattern generator table and pattern name table)
-        return {'reused': reused, 'pgt': pgt, 'pnt': pnt}
+        # return (pattern generator table, pattern name table, pattern changed list)
+        return {'pgt': pgt, 'pnt': pnt, 'pcl': pcl}
 

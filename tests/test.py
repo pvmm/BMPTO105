@@ -29,6 +29,7 @@ from pathlib import Path
 
 sys.path.append('..')
 import bmpto105
+from bmpto105 import PGT, PNT, PCL
 
 
 TILE_WIDTH = TILE_HEIGHT = 8
@@ -78,16 +79,17 @@ def main():
     total = [0, 0, 0]
     pgt: list[PGT] = [{}, {}, {}]
     pnt: list[PNT] = [([], []), ([], []), ([], [])]
+    pcl: list[PCL] = [(set(), set()), (set(), set()), (set(), set())]
 
     for n, region in enumerate(stats):
-        reuse[n] = len(region['reused'])
-        total[n] = len(region['pgt'])
         pgt[n] = region['pgt']
         pnt[n] = region['pnt']
+        pcl[n] = region['pcl']
+        total[n] = len(region['pgt'][0]) + len(region['pgt'][1])
 
-    print(f'range: 000-064: size: {total[0]}{'*' if total[0] > 256 else ''}, repetition: {reuse[0]}')
-    print(f'range: 064-128: size: {total[1]}{'*' if total[1] > 256 else ''}, repetition: {reuse[1]}')
-    print(f'range: 128-192: size: {total[2]}{'*' if total[2] > 256 else ''}, repetition: {reuse[2]}')
+    print(f'range: 000-064: size: {total[0]}{'*' if total[0] > 256 else ''}, repetition: {len(pcl[0][0]) + len(pcl[0][1])}')
+    print(f'range: 064-128: size: {total[1]}{'*' if total[1] > 256 else ''}, repetition: {len(pcl[1][0]) + len(pcl[1][1])}')
+    print(f'range: 128-192: size: {total[2]}{'*' if total[2] > 256 else ''}, repetition: {len(pcl[2][0]) + len(pcl[2][1])}')
 
     # Save MSX bitmap and equivalent 105-colours bitmap
     dst.save_msx(str(path.with_suffix('.si2')))
