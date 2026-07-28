@@ -80,8 +80,8 @@ def main():
     pnt: list[PNT] = [([], []), ([], []), ([], [])]
 
     for n, region in enumerate(stats):
-        reuse[n] = region['reused']
-        total[n] = region['total']
+        reuse[n] = len(region['reused'])
+        total[n] = len(region['pgt'])
         pgt[n] = region['pgt']
         pnt[n] = region['pnt']
 

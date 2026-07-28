@@ -257,11 +257,10 @@ type PGT = dict[str, list[tuple[int, int]]]
 type PNT = tuple[list[str], list[str]]
 
 
-class ScreenAttributes(TypedDict):
-    reused: int
-    total: int
+class ScreenState(TypedDict):
     pgt: PGT
     pnt: PNT
+    reused: set[str] # list of tiles that need update
 
 
 class Engine:
@@ -275,13 +274,13 @@ class Engine:
     def convert(self, image: Image.Image) -> MSXBitmap:
         return self.bmpTo105.convert(image)
 
-    def stats(self, bitmap: MSXBitmap, begin: int, end: int | None = None, threshold: float = 0.0) -> ScreenAttributes:
+    def stats(self, bitmap: MSXBitmap, begin: int, end: int | None = None, threshold: float = 0.0) -> ScreenState:
         if end is None:
             end = bitmap.height
         p: DCT = DCT(threshold)
         pgt: PGT = {}
         pnt: PNT = ([], [])
-        rep: int = 0
+        reused: set[str] = set()
         # process each frame individually
         frame0: Image.Image = bitmap.to_image(0b01).crop((0, begin, bitmap.width * TILE_WIDTH, end))
         frame1: Image.Image = bitmap.to_image(0b10).crop((0, begin, bitmap.width * TILE_WIDTH, end))
@@ -302,7 +301,7 @@ class Engine:
                     # store tile as the hash to VRAM pattern/color
                     pgt[hash_] = t
                 else:
-                    rep += 1
+                    reused.add(hash_)
                 # add tile reference to pattern name table
                 pnt[0].append(hash_)
 
@@ -320,9 +319,10 @@ class Engine:
                     # store tile as the hash to VRAM pattern/color
                     pgt[hash_] = t
                 else:
-                    rep += 1
+                    reused.add(hash_)
                 # add tile reference to pattern name table
                 pnt[1].append(hash_)
 
-        # return (number of repetitions, total number of used tiles, pattern generator table and pattern name table)
-        return {'reused': rep, 'total': len(pgt), 'pgt': pgt, 'pnt': pnt}
+        # return (reused tiles, pattern generator table and pattern name table)
+        return {'reused': reused, 'pgt': pgt, 'pnt': pnt}
+
