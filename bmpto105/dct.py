@@ -16,11 +16,11 @@ class DCT:
         self.threshold = threshold
         self.keep_coeffs = keep_coeffs
 
-    def dct2(self, block: np.ndarray) -> Any: #np.ndarray[tuple[Any, ...], np.dtype[Any]]:
+    def dct(self, block: np.ndarray) -> Any: #np.ndarray[tuple[Any, ...], np.dtype[Any]]:
         '''applies 2D DCT'''
         return dct(dct(block.T, norm='ortho').T, norm='ortho')
 
-    def idct2(self, block: np.ndarray) -> np.ndarray:
+    def idct(self, block: np.ndarray) -> np.ndarray:
         '''applies inverse 2D DCT'''
         return idct(idct(block.T, norm='ortho').T, norm='ortho')
 
@@ -35,7 +35,7 @@ class DCT:
             channel_data = matrix[:, :, channel].astype(np.float32)
 
             # applies DCT
-            dct_coeffs = self.dct2(channel_data)
+            dct_coeffs = self.dct(channel_data)
 
             # create a mask for maintaining coefficients
             mask = np.ones_like(dct_coeffs)
@@ -65,7 +65,7 @@ class DCT:
             dct_coeffs_trunc = dct_coeffs * mask
 
             # inverse DCT
-            approximated_channel = self.idct2(dct_coeffs_trunc)
+            approximated_channel = self.idct(dct_coeffs_trunc)
             approximated[:, :, channel] = approximated_channel
 
         return np.clip(approximated, 0, 255).astype(np.uint8).tobytes()
