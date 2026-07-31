@@ -3,8 +3,10 @@ import numpy as np
 from typing import Any
 from scipy.fftpack import dct, idct
 
+from bmpto105.approximator import Approximator
 
-class DCT:
+
+class DCT(Approximator):
     def __init__(self, threshold: float = 0.1, keep_coeffs: int | None = None) -> None:
         '''
         Processes tiles using DCT

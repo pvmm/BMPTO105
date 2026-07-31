@@ -1,5 +1,5 @@
 import struct
-from typing import Optional, Any, Union, cast, Iterator, Sequence, BinaryIO, TypedDict
+from typing import Optional, Any, Union, cast, Iterator, Sequence, BinaryIO, TypedDict, Callable
 
 from dataclasses import dataclass
 from PIL import Image
@@ -8,6 +8,8 @@ import bmpto105
 
 from bmpto105.functions import tile_hash, create_bitmap
 from bmpto105.dct import DCT
+from bmpto105.svd import SVD
+from bmpto105.approximator import Approximator
 
 
 # constants
@@ -260,6 +262,12 @@ type PGT = tuple[PGT0, PGT0]
 type PNT = tuple[list[str], list[str]]
 
 
+ALGORITHM: dict[str, Callable[[float], Approximator]] = {
+    'DCT': lambda t: DCT(t),
+    'SVD': lambda t: SVD(t),
+}
+
+
 class ScreenState(TypedDict):
     pgt: PGT
     pnt: PNT
@@ -274,13 +282,14 @@ class Engine:
         self.palette = palette
         self.bmpTo105 = bmpto105.BmpTo105(palette)
 
+
     def convert(self, image: Image.Image) -> MSXBitmap:
         return self.bmpTo105.convert(image)
 
-    def stats(self, bitmap: MSXBitmap, begin_y: int, end_y: int | None = None, threshold: float = 0.0) -> ScreenState:
-        if end_y is None:
-            end_y = bitmap.height
-        p: DCT = DCT(threshold)
+
+    def stats(self, bitmap: MSXBitmap, begin_y: int, end_y: int | None = None, threshold: float = 0.0, algorithm: str = 'DCT') -> ScreenState:
+        if end_y is None: end_y = bitmap.height
+        p: Approximator = ALGORITHM[algorithm](threshold)
         pgt: PGT = ({}, {})
         pnt: PNT = ([], [])
         pcl: PCL = ([], [])
