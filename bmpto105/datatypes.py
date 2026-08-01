@@ -18,7 +18,7 @@ TILE_HEIGHT: int = 8
 # specially made for 105-colours bitmap
 TILE_ROW_WIDTH: int = 4  # len([fg0, bg0, fg1, bg1])
 
-debug = lambda *args: None # print
+debug: Callable[..., Any] = lambda *args, **kwargs: None # print
 
 #
 # Python-side classes
@@ -254,7 +254,7 @@ class MSXBitmap:
 
 
 # pattern change list (list of tiles that changed, separated by even and odd frames)
-type PCL = tuple[list[str], list[str]]
+type PCL = tuple[list[tuple[int, int, str]], list[tuple[int, int, str]]]
 # pattern generator table (pgt[hash: str] -> pattern_data: list[(int, int)])
 type PGT0 = dict[str, list[tuple[int, int]]]
 type PGT = tuple[PGT0, PGT0]
