@@ -256,7 +256,7 @@ class MSXBitmap:
 # pattern change list (list of tiles that changed, separated by even and odd frames)
 type PCL = tuple[list[tuple[int, int, str]], list[tuple[int, int, str]]]
 # pattern generator table (pgt[hash: str] -> pattern_data: list[(int, int)])
-type PGT0 = dict[str, list[tuple[int, int]]]
+type PGT0 = dict[str, list[tuple[int, int] | int]]
 type PGT = tuple[PGT0, PGT0]
 # pattern name table (pnt[frame: int][index: int] -> pattern_no: int)
 type PNT = tuple[list[str], list[str]]
