@@ -256,7 +256,7 @@ class MSXBitmap:
 # pattern change list (list of tiles that changed, separated by even and odd frames)
 type PCL = tuple[list[tuple[int, int, str]], list[tuple[int, int, str]]]
 # pattern generator table (pgt[hash: str] -> pattern_data: list[(int, int)])
-type PGT0 = dict[str, list[tuple[int, int] | int]]
+type PGT0 = dict[str, list[tuple[int, int]]]
 type PGT = tuple[PGT0, PGT0]
 # pattern name table (pnt[frame: int][index: int] -> pattern_no: int)
 type PNT = tuple[list[str], list[str]]
@@ -308,7 +308,7 @@ class Engine:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
                     # convert bitmap into MSX tile
-                    t = [len(pgt[0])] + [(row[0].c0, row[0].p0) for row in self.bmpTo105.convert(
+                    t = [(row[0].c0, row[0].p0) for row in self.bmpTo105.convert(
                          create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
                     # store tile as the hash to VRAM pattern/color
                     pgt[0][hash_] = t
@@ -329,7 +329,7 @@ class Engine:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
                     # convert bitmap into MSX tile
-                    t = [len(pgt[1])] + [(row[0].c1, row[0].p1) for row in self.bmpTo105.convert(
+                    t = [(row[0].c1, row[0].p1) for row in self.bmpTo105.convert(
                          create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
                     # store tile as the hash to VRAM pattern/color
                     pgt[1][hash_] = t
