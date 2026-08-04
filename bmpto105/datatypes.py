@@ -181,14 +181,17 @@ class MSXBitmap:
         """Return the number of rows in the bitmap"""
         return len(self.data)
 
+
     def to_tile(self, y: int, x: int, frame: int) -> list[tuple[int, int, int]]:
         return [row[x].to_rgb(n, self.palette, frames=frame) for n in range(TILE_WIDTH) for row in cast(list[MSXBitmapRow], self[y : y + 8])]
+
 
     def save_msx(self, filename: str) -> None:
         debug(f'Saving "{filename}"... ', end='')
         with open(filename, 'wb') as file:
             self.save(file)
         debug('Done!')
+
 
     def save(self, file: BinaryIO) -> BinaryIO:
         # dimensions header
@@ -221,6 +224,7 @@ class MSXBitmap:
 
         return file
 
+
     def to_metatile(self, x0: int, y0: int, width: int = 1, height: int = 8, frame: int = 1) -> list[int]:
         """Return the metatile pattern and colors at a position withou combining frames (just frame 1 or 2)"""
         if y0 % 8 != 0 or height % 8 != 0:
@@ -233,6 +237,7 @@ class MSXBitmap:
                 c: int = [tile.c0, tile.c1][frame - 1]
                 metatile.extend([p, c])
         return metatile
+
 
     def to_image(self, frames: int = 0b11) -> Image.Image:
         """convert MSX Bitmap to PIL Image"""
@@ -248,18 +253,20 @@ class MSXBitmap:
                     dst.putpixel((x * TILE_WIDTH + tx, y), pixel)
         return dst
 
+
     def save_image(self, filename: str) -> None:
         """save Bitmap to a file"""
         self.to_image().save(filename)
 
 
-# pattern change list (list of tiles that changed, separated by even and odd frames)
-type PCL = tuple[list[tuple[int, int, str]], list[tuple[int, int, str]]]
-# pattern generator table (pgt[hash: str] -> pattern_data: list[(int, int)])
-type PGT0 = dict[str, list[tuple[int, int]]]
-type PGT = tuple[PGT0, PGT0]
+# pattern generator table (pgt[hash: str] -> pattern_data: list[int])
+type PGT = dict[str, list[int]]
+# pattern color table (pct[hash: str] -> color_data: list[int]):
+type PCT = dict[str, list[int]]
 # pattern name table (pnt[frame: int][index: int] -> pattern_no: int)
 type PNT = tuple[list[str], list[str]]
+# pattern change list (list of tiles that changed, separated by even and odd frames)
+type PCL = tuple[list[tuple[int, int, str]], list[tuple[int, int, str]]]
 
 
 ALGORITHM: dict[str, Callable[[float], Approximator]] = {
@@ -268,8 +275,9 @@ ALGORITHM: dict[str, Callable[[float], Approximator]] = {
 }
 
 
-class ScreenState(TypedDict):
+class ScreenSectionState(TypedDict):
     pgt: PGT
+    pct: PCT
     pnt: PNT
     pcl: PCL
 
@@ -287,10 +295,11 @@ class Engine:
         return self.bmpTo105.convert(image)
 
 
-    def stats(self, bitmap: MSXBitmap, begin_y: int, end_y: int | None = None, threshold: float = 0.0, algorithm: str = 'DCT') -> ScreenState:
+    def stats(self, bitmap: MSXBitmap, begin_y: int, end_y: int | None = None, threshold: float = 0.0, algorithm: str = 'DCT') -> ScreenSectionState:
         if end_y is None: end_y = bitmap.height
         p: Approximator = ALGORITHM[algorithm](threshold)
-        pgt: PGT = ({}, {})
+        pgt: PGT = {}
+        pct: PCT = {}
         pnt: PNT = ([], [])
         pcl: PCL = ([], [])
         # process each frame individually
@@ -302,20 +311,22 @@ class Engine:
                 # even frame tile (0)
                 tile = frame0.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
                 bytes_ = bytes(channels for pixel in list(tile.getdata()) for channels in pixel)
+                # approximate RGB tile
                 approx = p.approximate_tile(bytes_)
                 hash_ = tile_hash(approx)
-                if not hash_ in pgt[0]:
+                if not hash_ in pgt:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
                     # convert bitmap into MSX tile
-                    t = [(row[0].c0, row[0].p0) for row in self.bmpTo105.convert(
-                         create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
+                    tile0 = self.bmpTo105.convert(create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))
+                    pattern0 = [row[0].p0 for row in tile0]
+                    colours0 = [row[0].c0 for row in tile0]
                     # store tile as the hash to VRAM pattern/color
-                    pgt[0][hash_] = t
+                    pgt[hash_] = pattern0
+                    pct[hash_] = colours0
                 else:
                     tx = x // TILE_WIDTH
                     ty = y // TILE_HEIGHT
-                    debug(f'frame 0: ({tx}, {ty}), repetition of tile at {pgt[0][hash_][0]}')
                     pcl[0].append((tx, ty, hash_))
                 # add tile reference to pattern name table
                 pnt[0].append(hash_)
@@ -325,22 +336,39 @@ class Engine:
                 bytes_ = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
                 approx = p.approximate_tile(bytes_)
                 hash_ = tile_hash(approx)
-                if not hash_ in pgt[1]:
+                if not hash_ in pgt:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
                     # convert bitmap into MSX tile
-                    t = [(row[0].c1, row[0].p1) for row in self.bmpTo105.convert(
-                         create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))]
+                    tile1 = self.bmpTo105.convert(create_bitmap(TILE_WIDTH, TILE_HEIGHT, unflattened))
+                    pattern1 = [row[0].p1 for row in tile1]
+                    colours1 = [row[0].c1 for row in tile1]
                     # store tile as the hash to VRAM pattern/color
-                    pgt[1][hash_] = t
+                    pgt[hash_] = pattern1
+                    pct[hash_] = colours1
                 else:
                     tx = x // TILE_WIDTH
                     ty = y // TILE_HEIGHT
-                    debug(f'frame 1: ({tx}, {ty}), repetition of tile at {pgt[1][hash_][0]}')
                     pcl[1].append((tx, ty, hash_))
                 # add tile reference to pattern name table
                 pnt[1].append(hash_)
 
         # return (pattern generator table, pattern name table, pattern changed list)
-        return {'pgt': pgt, 'pnt': pnt, 'pcl': pcl}
+        return {'pgt': pgt, 'pct': pct, 'pnt': pnt, 'pcl': pcl}
+
+
+    def save(self, sections: list[ScreenSectionState], file: BinaryIO) -> None:
+        '''new save function that saves the pattern name tables for each frame along with the pattern generator table'''
+        # Save patterns for each section of the screen
+        for section in sections: # ScreenSectionState
+            # pattern generator table tiles
+            for count, (_, tile) in enumerate(section['pgt'].items()):
+                file.write(struct.pack(f'{TILE_HEIGHT}B', tile))
+            if count < 256:
+                file.write(struct.pack(f'{count * TILE_HEIGHT}B', [0] * count * TILE_HEIGHT))
+            # pattern color table tiles
+            for count, (_, tile) in enumerate(section['pgt'].items()):
+                file.write(struct.pack(f'{TILE_HEIGHT}B', tile))
+            if count < 256:
+                file.write(struct.pack(f'{count * TILE_HEIGHT}B', [0] * count * TILE_HEIGHT))
 
