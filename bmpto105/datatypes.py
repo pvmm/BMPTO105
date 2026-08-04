@@ -1,3 +1,5 @@
+from io import BytesIO
+
 import struct
 from typing import Optional, Any, Union, cast, Iterator, Sequence, BinaryIO, TypedDict, Callable
 
@@ -18,7 +20,7 @@ TILE_HEIGHT: int = 8
 # specially made for 105-colours bitmap
 TILE_ROW_WIDTH: int = 4  # len([fg0, bg0, fg1, bg1])
 
-debug: Callable[..., Any] = lambda *args, **kwargs: None # print
+debug: Callable[..., Any] = print # lambda *args, **kwargs: None
 
 #
 # Python-side classes
@@ -202,25 +204,25 @@ class MSXBitmap:
         for y in range(0, self.height, TILE_HEIGHT):
             rows = cast(list[MSXBitmapRow], self[y : y + TILE_HEIGHT])
             for x in range(0, self.width):
-                file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p0 for pixel in [row[x] for row in rows]]))
+                file.write(struct.pack(f'{TILE_HEIGHT}B', * [pixel.p0 for pixel in [row[x] for row in rows]]))
 
         # Save colours for even image
         for y in range(0, self.height, TILE_HEIGHT):
             rows = cast(list[MSXBitmapRow], self[y : y + TILE_HEIGHT])
             for x in range(0, self.width):
-                file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c0 for pixel in [row[x] for row in rows]]))
+                file.write(struct.pack(f'{TILE_HEIGHT}B', * [pixel.c0 for pixel in [row[x] for row in rows]]))
 
         # Save patterns for odd image
         for y in range(0, self.height, TILE_HEIGHT):
             rows = cast(list[MSXBitmapRow], self[y : y + TILE_HEIGHT])
             for x in range(0, self.width):
-                file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.p1 for pixel in [row[x] for row in rows]]))
+                file.write(struct.pack(f'{TILE_HEIGHT}B', * [pixel.p1 for pixel in [row[x] for row in rows]]))
 
         # Save colours for even image
         for y in range(0, self.height, TILE_HEIGHT):
             rows = cast(list[MSXBitmapRow], self[y : y + TILE_HEIGHT])
             for x in range(0, self.width):
-                file.write(struct.pack(f'{TILE_HEIGHT}B', *[pixel.c1 for pixel in [row[x] for row in rows]]))
+                file.write(struct.pack(f'{TILE_HEIGHT}B', * [pixel.c1 for pixel in [row[x] for row in rows]]))
 
         return file
 
@@ -259,14 +261,18 @@ class MSXBitmap:
         self.to_image().save(filename)
 
 
+# pattern index table (pit[hash: str] -> pattern_no: int)
+type PIT = dict[str, int]
 # pattern generator table (pgt[hash: str] -> pattern_data: list[int])
 type PGT = dict[str, list[int]]
 # pattern color table (pct[hash: str] -> color_data: list[int]):
 type PCT = dict[str, list[int]]
-# pattern name table (pnt[frame: int][index: int] -> pattern_no: int)
-type PNT = tuple[list[str], list[str]]
+# pattern name table (pnt[index: int] -> pattern_no: int)
+type PNT = list[str]
 # pattern change list (list of tiles that changed, separated by even and odd frames)
-type PCL = tuple[list[tuple[int, int, str]], list[tuple[int, int, str]]]
+type PCL = list[tuple[int, int, str]]
+# slackspace list (type, address, size)
+SLCK = list[tuple[str, int, int]]
 
 
 ALGORITHM: dict[str, Callable[[float], Approximator]] = {
@@ -276,10 +282,13 @@ ALGORITHM: dict[str, Callable[[float], Approximator]] = {
 
 
 class ScreenSectionState(TypedDict):
+    pit: PIT
     pgt: PGT
     pct: PCT
-    pnt: PNT
-    pcl: PCL
+    pnt0: PNT
+    pnt1: PNT
+    pcl0: PCL
+    pcl1: PCL
 
 
 class Engine:
@@ -298,10 +307,13 @@ class Engine:
     def stats(self, bitmap: MSXBitmap, begin_y: int, end_y: int | None = None, threshold: float = 0.0, algorithm: str = 'DCT') -> ScreenSectionState:
         if end_y is None: end_y = bitmap.height
         p: Approximator = ALGORITHM[algorithm](threshold)
+        pit: PIT = {}
         pgt: PGT = {}
         pct: PCT = {}
-        pnt: PNT = ([], [])
-        pcl: PCL = ([], [])
+        pnt0: PNT = []
+        pnt1: PNT = []
+        pcl0: PCL = []
+        pcl1: PCL = []
         # process each frame individually
         frame0: Image.Image = bitmap.to_image(0b01).crop((0, begin_y, bitmap.width * TILE_WIDTH, end_y))
         frame1: Image.Image = bitmap.to_image(0b10).crop((0, begin_y, bitmap.width * TILE_WIDTH, end_y))
@@ -314,7 +326,7 @@ class Engine:
                 # approximate RGB tile
                 approx = p.approximate_tile(bytes_)
                 hash_ = tile_hash(approx)
-                if not hash_ in pgt:
+                if not hash_ in pit:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
                     # convert bitmap into MSX tile
@@ -322,21 +334,22 @@ class Engine:
                     pattern0 = [row[0].p0 for row in tile0]
                     colours0 = [row[0].c0 for row in tile0]
                     # store tile as the hash to VRAM pattern/color
+                    pit[hash_] = len(pgt)
                     pgt[hash_] = pattern0
                     pct[hash_] = colours0
                 else:
                     tx = x // TILE_WIDTH
                     ty = y // TILE_HEIGHT
-                    pcl[0].append((tx, ty, hash_))
+                    pcl0.append((tx, ty, hash_))
                 # add tile reference to pattern name table
-                pnt[0].append(hash_)
+                pnt0.append(hash_)
 
                 # odd frame tile (1)
                 tile = frame1.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
                 bytes_ = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
                 approx = p.approximate_tile(bytes_)
                 hash_ = tile_hash(approx)
-                if not hash_ in pgt:
+                if not hash_ in pit:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
                     # convert bitmap into MSX tile
@@ -344,31 +357,77 @@ class Engine:
                     pattern1 = [row[0].p1 for row in tile1]
                     colours1 = [row[0].c1 for row in tile1]
                     # store tile as the hash to VRAM pattern/color
+                    pit[hash_] = len(pgt)
                     pgt[hash_] = pattern1
                     pct[hash_] = colours1
                 else:
                     tx = x // TILE_WIDTH
                     ty = y // TILE_HEIGHT
-                    pcl[1].append((tx, ty, hash_))
+                    pcl1.append((tx, ty, hash_))
                 # add tile reference to pattern name table
-                pnt[1].append(hash_)
+                pnt1.append(hash_)
 
         # return (pattern generator table, pattern name table, pattern changed list)
-        return {'pgt': pgt, 'pct': pct, 'pnt': pnt, 'pcl': pcl}
+        return {'pit': pit, 'pgt': pgt, 'pct': pct, 'pnt0': pnt0, 'pnt1': pnt1, 'pcl0': pcl0, 'pcl1': pcl1}
 
 
-    def save(self, sections: list[ScreenSectionState], file: BinaryIO) -> None:
+    def save(self, sections: list[ScreenSectionState], file: BinaryIO) -> SLCK:
         '''new save function that saves the pattern name tables for each frame along with the pattern generator table'''
-        # Save patterns for each section of the screen
-        for section in sections: # ScreenSectionState
-            # pattern generator table tiles
-            for count, (_, tile) in enumerate(section['pgt'].items()):
-                file.write(struct.pack(f'{TILE_HEIGHT}B', tile))
+        # create buffer for each section of the screen
+        pgt_ = BytesIO()
+        pnt0 = BytesIO()
+        pnt1 = BytesIO()
+        pct_ = BytesIO()
+        slackspaces: SLCK = []
+        for secn, section in enumerate(sections):
+            if len(section['pgt']) > 256: raise AttributeError('pattern generator table has more than 256 entries')
+            if len(section['pct']) > 256: raise AttributeError('pattern color table has more than 256 entries')
+            if len(section['pnt0']) > 256: raise AttributeError('pattern name table has more than 256 entries')
+            if len(section['pnt1']) > 256: raise AttributeError('pattern name table has more than 256 entries')
+            # write pattern generator table tiles
+            for pattern in section['pgt'].values():
+                pgt_.write(struct.pack(f'{TILE_HEIGHT}B', * pattern))
+            count = len(section['pgt'])
             if count < 256:
-                file.write(struct.pack(f'{count * TILE_HEIGHT}B', [0] * count * TILE_HEIGHT))
-            # pattern color table tiles
-            for count, (_, tile) in enumerate(section['pgt'].items()):
-                file.write(struct.pack(f'{TILE_HEIGHT}B', tile))
+                n = 256 - count
+                pgt_.write(struct.pack(f'{n * TILE_HEIGHT}B', * [0] * n * TILE_HEIGHT))
+                slackspaces.append((f'pgt{secn}', 0x0000 + secn * 2048 + count, n * TILE_HEIGHT))
+            # write pattern name table indexes (even frame)
+            pnt0.write(struct.pack('256B', * [section['pit'][hash_] for hash_ in section['pnt0']]))
+            # write pattern name table indexes (odd frame)
+            pnt1.write(struct.pack('256B', * [section['pit'][hash_] for hash_ in section['pnt1']]))
+            # write pattern color table tiles
+            for colours in section['pct'].values():
+                pct_.write(struct.pack(f'{TILE_HEIGHT}B', * colours))
+            count = len(section['pct'])
             if count < 256:
-                file.write(struct.pack(f'{count * TILE_HEIGHT}B', [0] * count * TILE_HEIGHT))
+                n = 256 - count
+                # zero-padded space
+                pct_.write(struct.pack(f'{n * TILE_HEIGHT}B', * [0] * n * TILE_HEIGHT))
+                slackspaces.append((f'pct{secn}', 0x2000 + secn * 2048 + count, n * TILE_HEIGHT))
 
+        # obligatory 256 bytes slackspace between PNT0 and PNT1
+        slackspaces.append(('pnt0..pnt1', 0x1b00, 256))
+        # obligatory 256 bytes slackspace between PNT1 and PCT
+        slackspaces.append(('pnt1..pct', 0x1f00, 256))
+        # space at the end
+        slackspaces.append(('end', 0x3800, 2048))
+
+        debug(f'{pgt_.getbuffer().nbytes=}, {pnt0.getbuffer().nbytes=}, {pnt1.getbuffer().nbytes=}, {pct_.getbuffer().nbytes=}')
+        for type_, adr, len_ in slackspaces:
+            debug(f'{adr=:04x}, {len_=} ({type_})')
+
+        # write pattern generator table tiles (0x0000-0x17ff)
+        file.write(pgt_.getvalue())
+        # write pattern name table indexes (even frame) (0x1800-0x1aff)
+        file.write(pnt0.getvalue())
+        # fill up 256 bytes between PNT0 and PNT1 from (0x1b00-0x1bff) with 0x0
+        file.write(struct.pack('256B', * [0] * 256))
+        # write pattern name table indexes (odd frame) (0x1c00-0x1eff)
+        file.write(pnt1.getvalue())
+        # fill up 256 bytes between PNT1 and PCT from (0x1f00-0x1fff) with 0x0
+        file.write(struct.pack('256B', * [0] * 256))
+        # write pattern color table tiles (0x2000-0x3800)
+        file.write(pct_.getvalue())
+
+        return slackspaces
