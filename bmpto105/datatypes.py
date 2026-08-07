@@ -11,6 +11,7 @@ import bmpto105
 from bmpto105.functions import tile_hash, create_bitmap
 from bmpto105.dct import DCT
 from bmpto105.svd import SVD
+from bmpto105.kmc import KMC
 from bmpto105.approximator import Approximator
 
 
@@ -278,6 +279,7 @@ SLCK = list[tuple[str, int, int]]
 ALGORITHM: dict[str, Callable[[float], Approximator]] = {
     'DCT': lambda t: DCT(t),
     'SVD': lambda t: SVD(t),
+    'KMC': lambda t: KMC(),
 }
 
 
