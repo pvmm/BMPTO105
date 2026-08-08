@@ -12,7 +12,8 @@ from bmpto105.functions import tile_hash, create_bitmap
 from bmpto105.dct import DCT
 from bmpto105.svd import SVD
 from bmpto105.kmc import KMC
-from bmpto105.approximator import Approximator
+from bmpto105.dkl import DKL
+from bmpto105.approximator import Approximator, ApproximatorCallable
 
 
 # constants
@@ -276,10 +277,11 @@ type PCL = list[tuple[int, int, str]]
 SLCK = list[tuple[str, int, int]]
 
 
-ALGORITHM: dict[str, Callable[[float], Approximator]] = {
-    'DCT': lambda t: DCT(t),
-    'SVD': lambda t: SVD(t),
-    'KMC': lambda t: KMC(),
+ALGORITHM: dict[str, ApproximatorCallable] = {
+    'DCT': lambda **kwargs: DCT(kwargs.get('threshold', 0.0), kwargs.get('keep_coeffs', None)),
+    'SVD': lambda **kwargs: SVD(kwargs.get('threshold', 0.0)),
+    'KMC': lambda **kwargs: KMC(kwargs.get('max_iterations')),
+    'DKL': lambda **kwargs: DKL(kwargs.get('threshold'), kwargs.get('min_neightbors')),
 }
 
 
@@ -306,9 +308,9 @@ class Engine:
         return self.bmpTo105.convert(image)
 
 
-    def stats(self, bitmap: MSXBitmap, begin_y: int, end_y: int | None = None, threshold: float = 0.0, algorithm: str = 'DCT') -> ScreenSectionState:
+    def stats(self, bitmap: MSXBitmap, begin_y: int, end_y: int | None = None, algorithm: str = 'DCT', **kwargs: float | int) -> ScreenSectionState:
         if end_y is None: end_y = bitmap.height
-        p: Approximator = ALGORITHM[algorithm](threshold)
+        p: Approximator = ALGORITHM[algorithm](**kwargs)
         pit: PIT = {}
         pgt: PGT = {}
         pct: PCT = {}

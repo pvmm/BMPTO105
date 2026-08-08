@@ -15,7 +15,7 @@ COLORS_PER_ROW = 4
 class KMC(Approximator):
     """Approximate an RGB 8x8 tile using k-means clustering per row."""
 
-    def __init__(self, max_iterations: int = 20) -> None:
+    def __init__(self, max_iterations: int | None = None) -> None:
         """
         Initialize K-Means Clustering algorithm with default parameters
 
@@ -23,7 +23,7 @@ class KMC(Approximator):
             max_iterations:
                 Maximum number of k-means iterations per row (default = 20).
         """
-        self.max_iterations = max_iterations
+        self.max_iterations = max_iterations or 20
 
 
     def approximate_tile(self, rgb_data: bytes) -> bytes:

@@ -7,7 +7,10 @@ from bmpto105.approximator import Approximator
 
 
 class DCT(Approximator):
-    def __init__(self, threshold: float = 0.1, keep_coeffs: int | None = None) -> None:
+    threshold: float
+    keep_coeffs: int | None
+
+    def __init__(self, threshold: float = 0.0, keep_coeffs: int | None = None) -> None:
         '''
         Processes tiles using DCT
 
@@ -15,16 +18,19 @@ class DCT(Approximator):
             threshold: threshold for coefficient disposal (0-1)
             keep_coeffs: fixed number of coefficients to maintain (overwrites threshold)
         '''
-        self.threshold = threshold
+        self.threshold = threshold or 0.0
         self.keep_coeffs = keep_coeffs
+
 
     def dct(self, block: np.ndarray) -> Any: #np.ndarray[tuple[Any, ...], np.dtype[Any]]:
         '''applies 2D DCT'''
         return dct(dct(block.T, norm='ortho').T, norm='ortho')
 
+
     def idct(self, block: np.ndarray) -> np.ndarray:
         '''applies inverse 2D DCT'''
         return idct(idct(block.T, norm='ortho').T, norm='ortho')
+
 
     def approximate_tile(self, tile: bytes) -> bytes:
         '''applies truncated DCT for approximation'''
@@ -71,4 +77,3 @@ class DCT(Approximator):
             approximated[:, :, channel] = approximated_channel
 
         return np.clip(approximated, 0, 255).astype(np.uint8).tobytes()
-
