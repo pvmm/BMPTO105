@@ -423,15 +423,15 @@ class Engine:
 
         # write pattern generator table tiles (0x0000-0x17ff)
         file.write(pgt_.getvalue())
-        # write pattern name table indexes (even frame) (0x1800-0x1aff)
+        # write pattern name table indexes for PNT0 (even frame) (0x1800-0x1aff)
         file.write(pnt0.getvalue())
-        # fill up 256 bytes between PNT0 and PNT1 from (0x1b00-0x1bff) with 0x0
+        # fill up sprite attribute table (0x1b00) with 0x0
         file.write(struct.pack('256B', * [0] * 256))
-        # write pattern name table indexes (odd frame) (0x1c00-0x1eff)
+        # write pattern name table indexes for PNT1 (odd frame) (0x1c00-0x1eff)
         file.write(pnt1.getvalue())
         # fill up 256 bytes between PNT1 and PCT from (0x1f00-0x1fff) with 0x0
         file.write(struct.pack('256B', * [0] * 256))
-        # write pattern color table tiles (0x2000-0x3800)
+        # write pattern color table tiles (0x2000-0x37ff)
         file.write(pct_.getvalue())
 
         return slackspaces
