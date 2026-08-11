@@ -33,6 +33,7 @@ class DKL(Approximator):
                 Minimum number of nearby pixels supporting the
                 replacement color.
         """
+        print(f'{threshold=}, {min_neighbors=}')
         threshold = 30 if threshold is None else threshold
         if threshold < 0:
             raise ValueError("threshold must be non-negative")

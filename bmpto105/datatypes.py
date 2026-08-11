@@ -8,12 +8,12 @@ from PIL import Image
 
 import bmpto105
 
-from bmpto105.functions import tile_hash, create_bitmap
+from bmpto105.functions import create_bitmap, hash_tile
 from bmpto105.dct import DCT
 from bmpto105.svd import SVD
 from bmpto105.kmc import KMC
 from bmpto105.dkl import DKL
-from bmpto105.approximator import Approximator, ApproximatorCallable
+from bmpto105.approximator import Approximator, NulApproximator, ApproximatorCallable
 
 
 # constants
@@ -278,6 +278,7 @@ SLCK = list[tuple[str, int, int]]
 
 
 ALGORITHM: dict[str, ApproximatorCallable] = {
+    'NUL': lambda **kwargs: NulApproximator(),
     'DCT': lambda **kwargs: DCT(kwargs.get('threshold', 0.0), kwargs.get('keep_coeffs', None)),
     'SVD': lambda **kwargs: SVD(kwargs.get('threshold', 0.0)),
     'KMC': lambda **kwargs: KMC(kwargs.get('max_iterations')),
@@ -329,7 +330,7 @@ class Engine:
                 bytes_ = bytes(channels for pixel in list(tile.getdata()) for channels in pixel)
                 # approximate RGB tile
                 approx = p.approximate_tile(bytes_)
-                hash_ = tile_hash(approx)
+                hash_ = hash_tile(approx)
                 if not hash_ in pit:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]
@@ -352,7 +353,7 @@ class Engine:
                 tile = frame1.crop((x, y, x + TILE_WIDTH, y + TILE_HEIGHT))
                 bytes_ = bytes(channel for pixel in list(tile.getdata()) for channel in pixel)
                 approx = p.approximate_tile(bytes_)
-                hash_ = tile_hash(approx)
+                hash_ = hash_tile(approx)
                 if not hash_ in pit:
                     # convert [r0,g0,b0,r1,g1,b1,...] back into [(r0,g0,b0),(r1,g1,b1),...]
                     unflattened = [(approx[i], approx[i + 1], approx[i + 2]) for i in range(0, len(approx), 3)]

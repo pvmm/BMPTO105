@@ -39,7 +39,7 @@ def create_bitmap(width: int, height: int, data: list[tuple[int, int, int]]) -> 
     return dst
 
 
-def tile_hash(tile: Buffer) -> str:
+def hash_tile(tile: Buffer) -> str:
     return hashlib.md5(tile).hexdigest()
 
 
@@ -58,7 +58,7 @@ def remove_similar_tiles(tiles: list[Buffer], approximate_tile: Callable[[Buffer
     for tile in tiles:
         approx = approximate_tile(tile, rank)
 
-        h = tile_hash(approx)
+        h = hash_tile(approx)
         if h in lookup:
             mapping.append(lookup[h])
         else:
